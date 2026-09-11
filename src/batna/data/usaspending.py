@@ -17,17 +17,23 @@ class ProcurementAward(BaseModel):
     """Normalized federal procurement award record from USAspending.gov."""
 
     award_id: str = Field(..., description="Unique generated award ID or contract key")
-    internal_id: str | None = Field(None, description="USAspending internal award ID")
+    internal_id: str | None = Field(default=None, description="USAspending internal award ID")
     recipient_name: str = Field(..., description="Contract awardee / vendor name")
     awarding_agency: str = Field(..., description="Contracting agency name")
-    awarding_subagency: str | None = Field(None, description="Sub-tier contracting office/agency")
+    awarding_subagency: str | None = Field(
+        default=None, description="Sub-tier contracting office/agency"
+    )
     award_amount: float = Field(..., description="Obligated contract award amount in USD")
     description: str = Field(..., description="Description of procurement or work requirement")
-    start_date: str | None = Field(None, description="Period of performance start date")
-    end_date: str | None = Field(None, description="Period of performance end date")
-    contract_type: str | None = Field(None, description="Contract pricing type (e.g. FFP, T&M)")
-    naics_code: str | None = Field(None, description="North American Industry Classification code")
-    source_url: str | None = Field(None, description="USAspending web verification URL")
+    start_date: str | None = Field(default=None, description="Period of performance start date")
+    end_date: str | None = Field(default=None, description="Period of performance end date")
+    contract_type: str | None = Field(
+        default=None, description="Contract pricing type (e.g. FFP, T&M)"
+    )
+    naics_code: str | None = Field(
+        default=None, description="North American Industry Classification code"
+    )
+    source_url: str | None = Field(default=None, description="USAspending web verification URL")
 
 
 class USAspendingClient:
