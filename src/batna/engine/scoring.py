@@ -42,9 +42,7 @@ def calculate_zopa(
     return (low, high)
 
 
-def calculate_nash_price(
-    buyer: Principal, seller: Principal, term: str = "price"
-) -> float | None:
+def calculate_nash_price(buyer: Principal, seller: Principal, term: str = "price") -> float | None:
     """
     Calculate the Nash Bargaining Solution price for a given term.
 

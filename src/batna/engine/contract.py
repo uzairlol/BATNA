@@ -11,9 +11,7 @@ class ContractTerms(BaseModel):
     """Terms of a bilateral contract negotiation."""
 
     price: float = Field(..., gt=0, description="Contract price in currency units")
-    payment_terms_days: int = Field(
-        ..., ge=0, le=365, description="Days to pay after delivery"
-    )
+    payment_terms_days: int = Field(..., ge=0, le=365, description="Days to pay after delivery")
     delivery_sla_days: int = Field(
         ..., ge=0, le=365, description="Delivery service level agreement in days"
     )
@@ -27,12 +25,12 @@ class ContractTerms(BaseModel):
         ..., ge=0, le=365, description="Notice period for termination in days"
     )
 
-    @field_validator('liability_cap_pct')
+    @field_validator("liability_cap_pct")
     @classmethod
     def liability_cap_must_be_reasonable(cls, v: float) -> float:
         """Ensure liability cap is reasonable (not 0% unless explicitly allowed)."""
         if v < 0:
-            raise ValueError('Liability cap cannot be negative')
+            raise ValueError("Liability cap cannot be negative")
         return v
 
     class Config:

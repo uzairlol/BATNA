@@ -13,18 +13,14 @@ class Principal(BaseModel):
     reservation_value: float = Field(
         ..., gt=0, description="Worst acceptable value (reservation point)"
     )
-    target_value: float = Field(
-        ..., gt=0, description="Desired value (target point)"
-    )
+    target_value: float = Field(..., gt=0, description="Desired value (target point)")
     authorized_mandate: dict[str, tuple[float, float]] = Field(
         ...,
         description="Authorized ranges for each contract term (term -> [min, max])",
     )
-    round_budget: int = Field(
-        ..., ge=1, description="Maximum number of negotiation rounds allowed"
-    )
+    round_budget: int = Field(..., ge=1, description="Maximum number of negotiation rounds allowed")
 
-    @field_validator('authorized_mandate')
+    @field_validator("authorized_mandate")
     @classmethod
     def mandate_must_be_valid_tuples(
         cls, v: dict[str, tuple[float, float]]
@@ -32,15 +28,11 @@ class Principal(BaseModel):
         """Ensure each mandate is a tuple of two numbers with min <= max."""
         for term, bounds in v.items():
             if not isinstance(bounds, tuple) or len(bounds) != 2:
-                raise ValueError(
-                    f'Mandate for {term} must be a tuple of two numbers, got {bounds}'
-                )
+                raise ValueError(f"Mandate for {term} must be a tuple of two numbers, got {bounds}")
             if not all(isinstance(x, (int, float)) for x in bounds):
-                raise ValueError(
-                    f'Mandate for {term} must contain numeric values, got {bounds}'
-                )
+                raise ValueError(f"Mandate for {term} must contain numeric values, got {bounds}")
             if bounds[0] > bounds[1]:
-                raise ValueError(f'Mandate min must be <= max for {term}')
+                raise ValueError(f"Mandate min must be <= max for {term}")
         return v
 
     class Config:
