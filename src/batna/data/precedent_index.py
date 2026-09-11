@@ -48,9 +48,7 @@ class SimpleBM25:
         self.idf: dict[str, float] = {}
         for term, freq in self.doc_freqs.items():
             # Standard Lucene/BM25 IDF
-            self.idf[term] = math.log(
-                (self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0
-            )
+            self.idf[term] = math.log((self.corpus_size - freq + 0.5) / (freq + 0.5) + 1.0)
 
     def get_scores(self, query_tokens: list[str]) -> list[float]:
         """Calculate BM25 relevance score for each document against query."""
@@ -160,9 +158,7 @@ class PrecedentHybridIndex:
             rrf_scores[idx] = rrf
 
         # Sort by RRF score
-        sorted_rrf = sorted(rrf_scores.items(), key=lambda item: item[1], reverse=True)[
-            :top_k
-        ]
+        sorted_rrf = sorted(rrf_scores.items(), key=lambda item: item[1], reverse=True)[:top_k]
 
         results: list[SearchResult] = []
         for doc_idx, score in sorted_rrf:

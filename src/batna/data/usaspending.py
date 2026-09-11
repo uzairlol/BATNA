@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 from pydantic import BaseModel, Field
@@ -37,7 +37,7 @@ class USAspendingClient:
     SPENDING_BY_AWARD_URL: str = f"{BASE_URL}/api/v2/search/spending_by_award/"
 
     # Standard IT & Professional Services NAICS codes
-    DEFAULT_NAICS_CODES: list[str] = [
+    DEFAULT_NAICS_CODES: ClassVar[list[str]] = [
         "541511",  # Custom Computer Programming Services
         "541512",  # Computer Systems Design Services
         "541519",  # Other Computer Related Services
@@ -97,9 +97,7 @@ class USAspendingClient:
 
         headers = {"User-Agent": "Mozilla/5.0"}
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                self.SPENDING_BY_AWARD_URL, json=payload, headers=headers
-            )
+            response = await client.post(self.SPENDING_BY_AWARD_URL, json=payload, headers=headers)
 
             response.raise_for_status()
             data = response.json()

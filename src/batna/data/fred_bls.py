@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 from pydantic import BaseModel, Field
@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 class BenchmarkObservation(BaseModel):
     """Single observation point for an economic index series."""
 
-    date: str = Field(..., description="Date or period of observation (e.g. '2024-01-01' or '2024M01')")
+    date: str = Field(
+        ..., description="Date or period of observation (e.g. '2024-01-01' or '2024M01')"
+    )
     value: float = Field(..., description="Value of index / series at this observation")
 
 
@@ -48,7 +50,7 @@ class EconomicDataClient:
     # PCU541512541512: Computer Systems Design Services
     # PCU518210518210: Data Processing, Hosting, and Related Services
     # WPUFD4: Final Demand PPI
-    INDUSTRY_SERIES_MAP: dict[str, str] = {
+    INDUSTRY_SERIES_MAP: ClassVar[dict[str, str]] = {
         "software_development": "PCU541511541511",
         "systems_design": "PCU541512541512",
         "cloud_hosting": "PCU518210518210",
@@ -139,7 +141,9 @@ class EconomicDataClient:
     ) -> MarketBenchmarkResult:
         """Fetch economic indicator series from FRED API."""
         if not self.fred_api_key:
-            raise ValueError("FRED API key is required to query FRED. Provide FRED_API_KEY in settings or env.")
+            raise ValueError(
+                "FRED API key is required to query FRED. Provide FRED_API_KEY in settings or env."
+            )
 
         params: dict[str, str | int] = {
             "series_id": series_id,
