@@ -1,0 +1,1 @@
+"""BATNA deterministic negotiation engine."""
