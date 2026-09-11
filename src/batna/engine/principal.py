@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
-
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Principal(BaseModel):
@@ -35,21 +33,20 @@ class Principal(BaseModel):
                 raise ValueError(f"Mandate min must be <= max for {term}")
         return v
 
-    class Config:
-        """Pydantic configuration."""
-
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "reservation_value": 100.0,
                 "target_value": 80.0,
                 "authorized_mandate": {
-                    "price": (70000, 130000),
-                    "payment_terms_days": (15, 60),
-                    "delivery_sla_days": (7, 30),
-                    "liability_cap_pct": (10, 30),
-                    "contract_duration_months": (12, 36),
-                    "termination_notice_days": (30, 90),
+                    "price": [70000, 130000],
+                    "payment_terms_days": [15, 60],
+                    "delivery_sla_days": [7, 30],
+                    "liability_cap_pct": [10, 30],
+                    "contract_duration_months": [12, 36],
+                    "termination_notice_days": [30, 90],
                 },
                 "round_budget": 10,
             }
         }
+    )

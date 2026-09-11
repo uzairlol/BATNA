@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
-
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ContractTerms(BaseModel):
@@ -33,10 +31,8 @@ class ContractTerms(BaseModel):
             raise ValueError("Liability cap cannot be negative")
         return v
 
-    class Config:
-        """Pydantic configuration."""
-
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "price": 100000.0,
                 "payment_terms_days": 30,
@@ -46,3 +42,4 @@ class ContractTerms(BaseModel):
                 "termination_notice_days": 60,
             }
         }
+    )
