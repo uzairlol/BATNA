@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -24,7 +26,9 @@ class Principal(BaseModel):
 
     @field_validator('authorized_mandate')
     @classmethod
-    def mandate_must_be_valid_tuples(cls, v):
+    def mandate_must_be_valid_tuples(
+        cls, v: dict[str, tuple[float, float]]
+    ) -> dict[str, tuple[float, float]]:
         """Ensure each mandate is a tuple of two numbers with min <= max."""
         for term, bounds in v.items():
             if not isinstance(bounds, tuple) or len(bounds) != 2:
@@ -42,7 +46,7 @@ class Principal(BaseModel):
     class Config:
         """Pydantic configuration."""
 
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "reservation_value": 100.0,
                 "target_value": 80.0,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -27,7 +29,7 @@ class ContractTerms(BaseModel):
 
     @field_validator('liability_cap_pct')
     @classmethod
-    def liability_cap_must_be_reasonable(cls, v):
+    def liability_cap_must_be_reasonable(cls, v: float) -> float:
         """Ensure liability cap is reasonable (not 0% unless explicitly allowed)."""
         if v < 0:
             raise ValueError('Liability cap cannot be negative')
@@ -36,7 +38,7 @@ class ContractTerms(BaseModel):
     class Config:
         """Pydantic configuration."""
 
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "price": 100000.0,
                 "payment_terms_days": 30,

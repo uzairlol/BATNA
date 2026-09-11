@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
-from .contract import ContractTerms
 from .principal import Principal
 
 
 def calculate_zopa(
     buyer: Principal, seller: Principal, term: str = "price"
-) -> Optional[Tuple[float, float]]:
+) -> tuple[float, float] | None:
     """
     Calculate the Zone of Possible Agreement (ZOPA) for a given term.
 
@@ -30,8 +27,8 @@ def calculate_zopa(
     if term not in buyer.authorized_mandate or term not in seller.authorized_mandate:
         raise ValueError(f"Term '{term}' not found in one or both principals' mandates")
 
-    buyer_min, buyer_max = buyer.authorized_mandate[term]
-    seller_min, seller_max = seller.authorized_mandate[term]
+    _, buyer_max = buyer.authorized_mandate[term]
+    seller_min, _ = seller.authorized_mandate[term]
 
     # For cost-like term (price):
     #   Buyer accepts: (-inf, buyer_max]
@@ -47,7 +44,7 @@ def calculate_zopa(
 
 def calculate_nash_price(
     buyer: Principal, seller: Principal, term: str = "price"
-) -> Optional[float]:
+) -> float | None:
     """
     Calculate the Nash Bargaining Solution price for a given term.
 
@@ -70,16 +67,12 @@ def calculate_nash_price(
 
     low, high = zopa
 
-    # Extract reservation and target values for the term from the principals.
+    # Extract reservation values for the term from the principals.
     # We assume:
-    #   buyer_reservation = buyer's mandate max for the term (price they are willing to pay up to)
-    #   buyer_target = buyer's target_value (desired price, should be <= buyer_reservation)
-    #   seller_reservation = seller's mandate min for the term (price they are willing to accept down to)
-    #   seller_target = seller's target_value (desired price, should be >= seller_reservation)
+    #   buyer_reservation = buyer's mandate max for the term
+    #   seller_reservation = seller's mandate min for the term
     buyer_reservation = buyer.authorized_mandate[term][1]
-    buyer_target = buyer.target_value
     seller_reservation = seller.authorized_mandate[term][0]
-    seller_target = seller.target_value
 
     # Nash price is the midpoint of the two reservations.
     nash_price = (buyer_reservation + seller_reservation) / 2.0

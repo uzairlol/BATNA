@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from batna.engine.contract import ContractTerms
 from batna.engine.principal import Principal
 from batna.engine.scoring import calculate_nash_price, calculate_zopa
 
