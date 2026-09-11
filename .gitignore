@@ -56,11 +56,12 @@ htmlcov/
 *.swo
 
 # Project specific
-data/
+/data/
 indices/
 *.faiss
 *.pkl
 logs/
+
 
 # Ignore markdown files in root directory (except README.md)
 /*.md
