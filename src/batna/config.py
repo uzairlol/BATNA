@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/batna"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Phase 2 data cache
+    precedent_corpus_path: str = "data/precedent_corpus.json"
+
     # External APIs
     fred_api_key: str = ""
     bls_api_key: str = ""

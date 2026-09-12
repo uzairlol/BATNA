@@ -66,3 +66,6 @@ logs/
 # Ignore markdown files in root directory (except README.md)
 /*.md
 !/README.md
+
+#Ignore claude files in root directory
+.clauderc
