@@ -47,9 +47,7 @@ class PrecedentServerState:
                     f"Precedent corpus at {self.corpus_path} is empty. "
                     "Build it first with USAspendingClient.build_corpus_cache."
                 )
-            logger.info(
-                "Loaded %d real procurement awards from %s", len(awards), self.corpus_path
-            )
+            logger.info("Loaded %d real procurement awards from %s", len(awards), self.corpus_path)
             self._index = PrecedentHybridIndex(awards)
         return self._index
 

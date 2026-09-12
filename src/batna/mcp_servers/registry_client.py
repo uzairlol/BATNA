@@ -44,6 +44,4 @@ class ToolRegistryClient:
         """Call a discovered tool with the given arguments; return its text content."""
         async with self._session() as session:
             result = await session.call_tool(name, arguments)
-        return "".join(
-            content.text for content in result.content if getattr(content, "text", None)
-        )
+        return "".join(content.text for content in result.content if getattr(content, "text", None))
