@@ -5,7 +5,9 @@
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
-An autonomous multi-agent contract negotiation system in which two tool-using LLM agents represent principals with conflicting interests, dynamically discover and invoke real data-backed tools served over the **Model Context Protocol (MCP)**, undergo independent **Theory-of-Mind (ToM) auditing** for reasoning-tool-action provenance consistency, operate with **structured memory curation** against poisoning and drift, and escalate high-stakes decisions through an explicit **human approval gate**.
+BATNA is a multi-agent contract negotiation system where two AI agents negotiate commercial terms on behalf of opposing parties.
+
+Instead of relying on scripted prompts or synthetic data, the agents query real-world market and procurement data over the Model Context Protocol (MCP). To ensure safe and realistic autonomy, an auditor checks agent reasoning for honesty and consistency, memory guardrails protect against manipulation, and high-stakes decisions require human approval before deals can close.
 
 ---
 
