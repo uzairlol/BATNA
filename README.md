@@ -96,6 +96,20 @@ In addition to the externally-served MCP tools, agents use deterministic, in-pro
 
 ---
 
+## Single Tool-Using Agent & Dynamic Tool Selection (Phase 5)
+
+`agents/` introduces the buyer agent that discovers MCP tools dynamically each session — it never relies on a hardcoded tool list. The agent queries the tool registry (`ToolRegistryClient`), autonomously decides which tool to call, and grounds its opening offer in the real fetched data before negotiating against a scripted counterparty.
+
+- **`agents/buyer_agent.py`**: `BuyerAgent` — `discover_tools()` at session start, bounded agentic tool-calling loop, opening offer, and negotiation against a `ScriptedSeller`.
+- **`agents/tool_provider.py`**: session-scoped `ToolProvider` that performs the dynamic registry query and records every real invocation in a `ToolCallLog` (provenance source).
+- **`agents/llm.py`**: `LLMClient` abstraction — `OllamaLLMClient` drives a local Ollama `/api/chat` native function-calling loop; `ScriptedLLMClient` is a hermetic, deterministic stand-in used by tests/CI that always consults a registry tool before the opening offer.
+- **`agents/verification.py`**: the Phase 5 audit — `verify_claims_grounded()` diffs the agent's textual claims against the actual call log so it can never reference a result it didn't really fetch.
+- **`agents/eval.py`**: a DoD evaluator (`python -m batna.agents.eval --runs 20`) that measures the call-before-offer rate and the grounding of claims across many runs.
+
+Phase 5 Definition of Done: across 20+ runs the agent calls at least one real MCP tool before its opening offer in the large majority of cases, and diffing its claims against the call log never finds a reference to a result it didn't actually fetch.
+
+---
+
 ## Repository Structure
 
 ```

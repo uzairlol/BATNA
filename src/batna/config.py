@@ -43,5 +43,13 @@ class Settings(BaseSettings):
     default_hosted_model: str = "claude-3-5-sonnet-20241022"
     auditor_model: str = "claude-3-5-haiku-20241022"
 
+    # Phase 5 agent behaviour. The buyer agent discovers MCP tools at session start
+    # and autonomously decides which to call before its opening offer; these bounds
+    # keep the agentic loop finite and auditable. Override via env or .env.
+    agent_model: str = "qwen2.5:7b"
+    agent_max_tool_calls: int = 6
+    agent_max_rounds: int = 4
+    agent_tool_call_log_dir: str = ""  # optional directory for durable JSONL call logs
+
 
 settings = Settings()
