@@ -87,6 +87,15 @@ Consequential transactions exceeding configurable risk or target variance thresh
 
 ---
 
+## Deterministic In-Process Tools (Phase 4)
+
+In addition to the externally-served MCP tools, agents use deterministic, in-process tools whose behavior is fully auditable and explainable:
+
+- **Risk Checker** (`tools/risk_checker.py`): codifies procurement/contract risk rules. Every threshold is documented in-code with a real, defensible source — the Federal Prompt Payment Act (31 U.S.C. § 3902) for net-30 payment terms, UCC § 2-309(3) for reasonable termination notice, the BLS Producer Price Index as the market reference for price-reasonableness, and an explicitly-labelled configurable market-practice parameter for the liability-cap floor and price-deviation tolerance. If asked "where did this threshold come from?", the answering citation is on the result object itself.
+- **Surplus Simulator** (`tools/surplus_simulator.py`): pure game theory on top of the engine's ZOPA and Nash Bargaining Solution, reporting total cooperative surplus and each party's share at the Nash price or any proposed price.
+
+---
+
 ## Repository Structure
 
 ```

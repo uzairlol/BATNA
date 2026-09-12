@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # Phase 2 data cache
     precedent_corpus_path: str = "data/precedent_corpus.json"
 
+    # Phase 4 in-process risk-checker thresholds. These are documented policy
+    # defaults; the source each threshold traces to is recorded in
+    # batna.tools.risk_checker. Override via env or .env.
+    risk_price_deviation_pct: float = 0.25
+    risk_min_liability_cap_pct: float = 0.20
+    risk_termination_notice_min_days: int = 1
+
     # External APIs
     fred_api_key: str = ""
     bls_api_key: str = ""
