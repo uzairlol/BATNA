@@ -23,6 +23,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
+from uuid import uuid4
 
 from batna.agents.llm import LLMClient, ToolCall
 from batna.agents.offers import OfferParseError, ParsedOffer, parse_offer
@@ -146,7 +147,13 @@ class NegotiatorAgent(ABC):
         # does not re-query the market on every counter-offer. History carries
         # the exchange context and is placed after the grounding so the most
         # recent counterpart offer is the last user message.
-        messages = [{"role": "system", "content": system}]
+        # Real (live) models need the OFFER_JSON + grounding contract spelled out
+        # in the system message to reliably emit a parseable six-term payload.
+        # The scripted client ignores system text, so appending is harmless.
+        system_content = (
+            system if "OFFER_JSON" in system else f"{system}\n\n{_ROLE_AGNOSTIC_TOOL_PROMPT}"
+        )
+        messages = [{"role": "system", "content": system_content}]
         messages.extend(self._grounding_messages)
         messages.extend(history)
         tools = self._provider.llm_tools()
@@ -224,8 +231,16 @@ class NegotiatorAgent(ABC):
 
 
 def _assistant_tool_message(call: ToolCall) -> dict[str, Any]:
+    # Native tool-calling (Ollama) requires the echoed tool call to carry its
+    # arguments as an OBJECT (not a JSON string) plus an `index`; echoing in
+    # that shape keeps the live-model loop happy across the ack/tool round-trip.
     return {
         "role": "assistant",
         "content": "",
-        "tool_calls": [{"function": {"name": call.name, "arguments": json.dumps(call.arguments)}}],
+        "tool_calls": [
+            {
+                "id": f"call_{uuid4().hex[:12]}",
+                "function": {"index": 0, "name": call.name, "arguments": call.arguments},
+            }
+        ],
     }

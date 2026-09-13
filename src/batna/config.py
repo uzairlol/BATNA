@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     agent_max_offer_retries: int = 3
     seller_model: str = "qwen2.5:7b"
 
+    # Phase 7 demo driver: "live" drives a **real** Ollama model over the
+    # LangGraph tool-calling loop so the dashboard streams genuine model reasoning
+    # and tool decisions.  If the Ollama server is unreachable the runner falls
+    # back to "scripted" (hermetic deterministic stand-in) and labels the session
+    # accordingly.  Set BATNA_LLM_MODE=scripted to force the deterministic path.
+    llm_mode: str = "live"
+
     # Phase 7 real-time streaming. Redis pub/sub channels are per-session under a
     # shared prefix; the bounded list is the replay buffer a late-joining WebSocket
     # client reads on connect so it sees the whole session, not just what streams

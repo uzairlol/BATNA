@@ -7,6 +7,7 @@ are swapped for in-memory stubs that exercise the exact same code paths
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from collections.abc import AsyncGenerator, Generator
@@ -143,3 +144,44 @@ def test_websocket_unknown_session_closes() -> None:
         with client.websocket_connect("/api/ws/ghost") as ws:
             ws.receive_json()
     assert excinfo.value.code == 4404
+
+
+def test_resolve_llms_scripted_is_hermetic() -> None:
+    """Forcing ``scripted`` never touches the network and returns determinism."""
+    from batna.api import runner
+
+    async def _go() -> tuple[str, str, str, str]:
+        mode, model, bl, sl = await runner._resolve_llms("scripted")
+        return mode, model, type(bl).__name__, type(sl).__name__
+
+    mode, model, b, s = asyncio.run(_go())
+    assert mode == "scripted"
+    assert model == "scripted-deterministic"
+    assert b == "ScriptedNegotiatorLLM"
+    assert s == "ScriptedNegotiatorLLM"
+
+
+def test_resolve_llms_live_default_falls_back_when_ollama_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default is ``live``; reaching for a real model but falling back keeps CI green."""
+    from batna.api import runner
+
+    requested: dict[str, str] = {}
+
+    async def _unreachable(model: str) -> bool:
+        requested["model"] = model
+        return False
+
+    monkeypatch.setattr(runner, "_live_llm_available", _unreachable)
+
+    async def _go() -> tuple[str, str]:
+        mode, model, *_ = await runner._resolve_llms()
+        return mode, model
+
+    mode, model = asyncio.run(_go())
+    # It attempted the live path (a tell that the default is now "live")...
+    assert requested["model"] == runner.settings.agent_model
+    # ...and fell back to a deterministic session that still labels honestly.
+    assert mode == "scripted"
+    assert model == "scripted-deterministic"

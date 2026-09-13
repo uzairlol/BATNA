@@ -164,3 +164,45 @@ async def test_buyer_and_seller_share_one_session_sink(
     )
     seqs = [e.seq for e in sink.emitted]
     assert len(set(seqs)) == len(seqs)  # no collisions across both agents
+
+
+async def test_run_mode_is_threaded_into_session_start_and_result(
+    _hermetic_registry: ToolRegistryClient,
+) -> None:
+    """run_mode/run_model are surfaced to the dashboard (xxx_start event + result)."""
+    sink = InMemoryStreamSink(session_id="sess-runmode-4")
+    buyer_p, seller_p = _scenario_principals("wide")
+    registry = _hermetic_registry
+
+    buyer = BuyerAgent(
+        llm=ScriptedNegotiatorLLM(role="buyer", base_price=70_000.0),
+        provider=ToolProvider(registry, sink=sink, role="buyer"),
+        sink=sink,
+        role="buyer",
+    )
+    seller = SellerAgent(
+        llm=ScriptedNegotiatorLLM(role="seller", base_price=120_000.0),
+        provider=ToolProvider(registry, sink=sink, role="seller"),
+        sink=sink,
+        role="seller",
+    )
+
+    result = await run_negotiation(
+        buyer,
+        seller,
+        buyer_p,
+        seller_p,
+        _DEFAULT_SCENARIO,
+        max_rounds=6,
+        sink=sink,
+        thread_id="sess-runmode-4",
+        run_mode="live",
+        run_model="qwen2.5:7b",
+    )
+
+    # The live-model identity is threaded through so the UI can label the run.
+    assert result["run_mode"] == "live"
+    assert result["run_model"] == "qwen2.5:7b"
+    start = next(e for e in sink.emitted if e.type is EventType.SESSION_START)
+    assert start.payload["run_mode"] == "live"
+    assert start.payload["run_model"] == "qwen2.5:7b"

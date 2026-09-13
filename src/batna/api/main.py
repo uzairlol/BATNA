@@ -88,6 +88,8 @@ async def get_session(session_id: str) -> dict[str, Any]:
         "session_id": session.session_id,
         "kind": session.kind,
         "status": session.status,
+        "run_mode": session.run_mode,
+        "run_model": session.run_model,
         "error": session.error,
     }
 
@@ -110,6 +112,8 @@ async def _drive_session(session: StreamingSession) -> None:
         session.result = await run_streaming_negotiation(
             session.session_id, session.sink, kind=session.kind
         )
+        session.run_mode = session.result.get("run_mode") or "scripted"
+        session.run_model = session.result.get("run_model") or ""
         session.status = "done"
     except Exception as exc:  # pragma: no cover - surfaced via session.status
         logger.exception("Session %s failed", session.session_id)
@@ -127,9 +131,15 @@ async def websocket_stream(websocket: WebSocket, session_id: str) -> None:
     await websocket.accept()
     pubsub = _get_redis().pubsub()
     try:
+        # Subscribe to the live channel FIRST, then replay the buffered snapshot.
+        # If we replayed first, an event published in the gap between the buffer
+        # read and the subscribe would be lost (e.g. session_start on a fast run).
+        # With subscribe-then-replay, an event published mid-replay may arrive in
+        # BOTH the snapshot and the live stream; the dashboard dedups by seq, so
+        # the handoff is gapless without ever emitting a duplicate.
+        await pubsub.subscribe(session.sink.channel())
         for raw in await session.sink.replay(settings.stream_replay_limit):
             await websocket.send_text(raw)
-        await pubsub.subscribe(session.sink.channel())
         async for message in pubsub.listen():
             if message.get("type") != "message":
                 continue

@@ -333,6 +333,8 @@ async def run_negotiation(
     max_rounds: int | None = None,
     sink: StreamSink | None = None,
     thread_id: str | None = None,
+    run_mode: str | None = None,
+    run_model: str | None = None,
 ) -> dict[str, Any]:
     """Convenience runner: discover + run the graph to a terminal outcome.
 
@@ -367,7 +369,12 @@ async def run_negotiation(
         "accepted_offer": None,
         "outcome": None,
     }
-    await active_sink.emit(build_event(EventType.SESSION_START, {"max_rounds": rounds}))
+    start_payload: dict[str, Any] = {"max_rounds": rounds}
+    if run_mode is not None:
+        start_payload["run_mode"] = run_mode
+    if run_model is not None:
+        start_payload["run_model"] = run_model
+    await active_sink.emit(build_event(EventType.SESSION_START, start_payload))
     try:
         config: RunnableConfig = {"configurable": {"thread_id": thread_id or "phase6-run"}}
         result = cast(dict[str, Any], await app.ainvoke(initial, config=config))
@@ -382,4 +389,6 @@ async def run_negotiation(
             build_event(EventType.ERROR, {"message": str(exc), "phase": "negotiation"})
         )
         raise
+    result["run_mode"] = run_mode
+    result["run_model"] = run_model
     return result

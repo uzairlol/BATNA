@@ -127,8 +127,16 @@ native WebSocket with **no polling**.
   (runs the negotiation in a background task), and `WS /api/ws/{session_id}`
   (replay-on-connect + live forwarding).
 - **Dashboard (`dashboard/`)**: a React + Vite app whose native WebSocket client
-  renders the feed — each tool call is an expandable raw-JSON row showing the
-  exact arguments and the response the tool really returned.
+  offers two views of the live negotiation:
+  - **Negotiation** — the exchange rendered as a conversation between the
+    Buyer and Seller: their reasoning, structured proposals, acceptance
+    checks, and an outcome card.
+  - **Raw event log** — every event as a card; each tool call is an expandable
+    raw-JSON row showing the exact arguments and the response the tool really
+    returned.
+  The client dedups events by the backend's monotonic `seq`, and a run-mode
+  badge labels whether the session was driven by a real model (`live`) or the
+  deterministic stand-in (`scripted`).
 
 Streaming is backward-compatible: `ToolProvider`, `NegotiatorAgent`, and
 `run_negotiation` all accept an optional `sink` (default `None`), so existing
@@ -149,6 +157,23 @@ cd dashboard && npm install && npm run dev
 
 Open `http://localhost:8000`, pick a scenario, hit **Start negotiation**, and
 watch the raw tool-call payloads stream in.
+
+### Run modes: scripted vs live LLM
+
+The demo ships with two drivers (set via `BATNA_LLM_MODE`, default `live`):
+
+- **`live`** (default) — drives the LangGraph loop with a **real** Ollama model
+  (`agent_model`, e.g. `qwen2.5:7b`), so the dashboard streams genuine model
+  reasoning and tool decisions and the transcript reads like an actual
+  buyer ↔ seller conversation. If Ollama is unreachable, the runner falls back
+  to `scripted` and labels the session honestly. Note: small local models do
+  not always converge — a `round_exhaustion` outcome is a legitimate,
+  correctly-handled result.
+- **`scripted`** — set `BATNA_LLM_MODE=scripted` to force a hermetic,
+  deterministic stand-in so the stream works anywhere with zero external model
+  dependency. The MCP tool-call payloads are still **real** live
+  FRED/BLS/USAspending data; this is the CI-safe path and always lands a clean
+  agreement.
 
 ---
 
