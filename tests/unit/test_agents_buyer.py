@@ -1,18 +1,16 @@
-"""Unit tests for the Phase 5 buyer agent's dynamic tool-calling behaviour."""
+"""Unit tests for the Phase 6 buyer agent's tool-calling + structured offers."""
 
 from __future__ import annotations
 
 import json
 from typing import Any
 
-import pytest
 from mcp.types import Tool
 
 from batna.agents.buyer_agent import BuyerAgent
-from batna.agents.llm import ScriptedLLMClient
-from batna.agents.scripted_counterparty import ScriptedSeller
+from batna.agents.llm import ScriptedNegotiatorLLM
 from batna.agents.tool_provider import ToolProvider
-from batna.agents.verification import VerificationOptions, verify_claims_grounded
+from batna.agents.verification import verify_offer_grounded
 from batna.mcp_servers.registry_client import ToolRegistryClient
 
 _PRECEDENT_SCHEMA = {
@@ -45,36 +43,43 @@ class _FakeRegistry(ToolRegistryClient):
         return self._fake_responses.get(name, "{}")
 
 
-async def test_agent_calls_real_tool_before_opening_offer_precedent() -> None:
+def _buyer(registry: _FakeRegistry) -> BuyerAgent:
+    provider = ToolProvider(registry)
+    agent = BuyerAgent(llm=ScriptedNegotiatorLLM(role="buyer"), provider=provider)
+    return agent
+
+
+async def test_buyer_calls_real_tool_before_opening_offer_precedent() -> None:
     tool = Tool(
         name="search_precedent",
         description="Search real procurement precedents",
         input_schema=_PRECEDENT_SCHEMA,
     )
     response = json.dumps([{"vendor": "Acme GovTech", "amount": 2_500_000.0, "agency": "GSA"}])
-    provider = ToolProvider(_FakeRegistry([tool], {"search_precedent": response}))
-    agent = BuyerAgent(llm=ScriptedLLMClient(), provider=provider)
+    agent = _buyer(_FakeRegistry([tool], {"search_precedent": response}))
     await agent.discover_tools()
 
-    seller = ScriptedSeller(asking_price=2_000_000.0, reservation_price=1_000_000.0)
-    result = await agent.negotiate(_SCENARIO, seller)
+    offer = await agent.opening_offer(_SCENARIO)
 
-    # DoD: at least one real tool was called before the opening offer was produced.
+    # DoD: at least one real tool was called before the opening offer was produced,
+    # and the offer is a full structured ContractTerms payload (not a price line).
     assert len(agent.call_log) == 1
     assert agent.call_log.tool_names() == ["search_precedent"]
-    assert result.opening_offer.price == pytest.approx(2_000_000.0)
+    assert offer.terms.price > 0
+    assert offer.terms.payment_terms_days > 0
+    assert offer.terms.delivery_sla_days > 0
+    assert offer.terms.liability_cap_pct > 0
+    assert offer.terms.contract_duration_months > 0
+    assert offer.terms.termination_notice_days > 0
 
-    # The justification only cites the fetched amount; its own price is excluded.
-    report = verify_claims_grounded(
-        agent.call_log,
-        result.opening_offer.justification,
-        VerificationOptions(excluded_values={result.opening_offer.price}),
-    )
+    # The justification only cites the fetched amount; the offer's own terms
+    # are decisions, not fetched claims.
+    report = verify_offer_grounded(agent.call_log, offer.raw_text, offer.terms)
     assert report.grounded is True
     assert report.ungrounded_values == []
 
 
-async def test_agent_grounds_on_market_benchmark() -> None:
+async def test_buyer_grounds_on_market_benchmark() -> None:
     tool = Tool(
         name="get_market_benchmark",
         description="Get a real market benchmark",
@@ -88,25 +93,19 @@ async def test_agent_grounds_on_market_benchmark() -> None:
             "annual_pct_change": 2.3,
         }
     )
-    provider = ToolProvider(_FakeRegistry([tool], {"get_market_benchmark": response}))
-    agent = BuyerAgent(llm=ScriptedLLMClient(), provider=provider)
+    agent = _buyer(_FakeRegistry([tool], {"get_market_benchmark": response}))
     await agent.discover_tools()
 
-    seller = ScriptedSeller(asking_price=2_000_000.0, reservation_price=1_000_000.0)
-    result = await agent.negotiate(_SCENARIO, seller)
+    offer = await agent.opening_offer(_SCENARIO)
 
     assert agent.call_log.tool_names() == ["get_market_benchmark"]
-    report = verify_claims_grounded(
-        agent.call_log,
-        result.opening_offer.justification,
-        VerificationOptions(excluded_values={result.opening_offer.price}),
-    )
+    report = verify_offer_grounded(agent.call_log, offer.raw_text, offer.terms)
     assert report.grounded is True
     # The cited benchmark figure (118.5) is present in the fetched response.
     assert 118.5 in report.fetched_values
 
 
-async def test_agent_refuses_to_fabricate_on_error() -> None:
+async def test_buyer_refuses_to_fabricate_on_unparseable_data() -> None:
     tool = Tool(
         name="search_precedent",
         description="Search real procurement precedents",
@@ -114,13 +113,11 @@ async def test_agent_refuses_to_fabricate_on_error() -> None:
     )
     # A response the scripted client cannot parse into a citation.
     response = json.dumps({"error": "rate limited"})
-    provider = ToolProvider(_FakeRegistry([tool], {"search_precedent": response}))
-    agent = BuyerAgent(llm=ScriptedLLMClient(), provider=provider)
+    agent = _buyer(_FakeRegistry([tool], {"search_precedent": response}))
     await agent.discover_tools()
 
-    seller = ScriptedSeller(asking_price=2_000_000.0, reservation_price=1_000_000.0)
-    result = await agent.negotiate(_SCENARIO, seller)
+    offer = await agent.opening_offer(_SCENARIO)
 
-    assert "decline to fabricate" in result.opening_offer.justification
-    report = verify_claims_grounded(agent.call_log, result.opening_offer.justification)
+    assert "decline to fabricate" in offer.raw_text
+    report = verify_offer_grounded(agent.call_log, offer.raw_text, offer.terms)
     assert report.grounded is True

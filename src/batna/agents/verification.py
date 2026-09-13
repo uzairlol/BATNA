@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass, field
 
 from batna.agents.tool_call_log import ToolCallLog
+from batna.engine.contract import ContractTerms
 
 # Capture a number token with optional $ prefix, K/M/B suffix, and % suffix,
 # supporting thousands separators (e.g. 2,500,000). Only "significant" figures are
@@ -78,3 +79,26 @@ def verify_claims_grounded(
         claimed_values=claimed,
         fetched_values=sorted(fetched_set),
     )
+
+
+def verify_offer_grounded(
+    log: ToolCallLog,
+    text: str,
+    proposed_terms: ContractTerms,
+) -> VerificationReport:
+    """Verify an agent's offer text is grounded, auto-excluding its own proposed terms.
+
+    The six values inside the agent's own ``OFFER_JSON`` are *decisions*, not
+    fetched data claims, so they must not be treated as ungrounded citations.
+    Everything else the text cites must appear in the real call log.
+    """
+    terms = proposed_terms
+    own_values = {
+        terms.price,
+        float(terms.payment_terms_days),
+        float(terms.delivery_sla_days),
+        float(terms.liability_cap_pct),
+        float(terms.contract_duration_months),
+        float(terms.termination_notice_days),
+    }
+    return verify_claims_grounded(log, text, VerificationOptions(excluded_values=own_values))

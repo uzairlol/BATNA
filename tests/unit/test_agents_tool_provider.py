@@ -41,12 +41,16 @@ async def test_provider_discovers_tools_dynamically() -> None:
     assert provider._tools is None  # no pre-loaded hardcoded list
 
     tools = await provider.discover()
-    assert len(tools) == 1
-    assert tools[0].name == "get_market_benchmark"
+    # Phase 6: the catalog merges the native check_contract_risk tool with the
+    # MCP-discovered market tool, both discovered dynamically this session.
+    assert {t.name for t in tools} == {"get_market_benchmark", "check_contract_risk"}
 
     formatted = provider.llm_tools()
     assert formatted[0]["type"] == "function"
-    assert formatted[0]["function"]["name"] == "get_market_benchmark"
+    assert {t["function"]["name"] for t in formatted} == {
+        "get_market_benchmark",
+        "check_contract_risk",
+    }
 
 
 async def test_provider_logs_every_real_call() -> None:

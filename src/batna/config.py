@@ -51,5 +51,13 @@ class Settings(BaseSettings):
     agent_max_rounds: int = 4
     agent_tool_call_log_dir: str = ""  # optional directory for durable JSONL call logs
 
+    # Phase 6 full-loop negotiation. Structured multi-term offers are parsed from
+    # the agent's OFFER_JSON=<json> text; max_offer_retries bounds re-prompting when
+    # the model emits text without a valid payload (spec §2.5: failure handled, not
+    # assumed away). The seller has its own model setting so the two sides can be
+    # given different models in production (avoiding shared blind spots).
+    agent_max_offer_retries: int = 3
+    seller_model: str = "qwen2.5:7b"
+
 
 settings = Settings()

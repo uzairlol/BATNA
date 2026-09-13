@@ -20,6 +20,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "numpy>=1.26.0",
     "scikit-learn>=1.4.0",
+    "langgraph>=1.0.0",
+    "langchain-core>=1.0.0",
 ]
 
 
@@ -75,6 +77,8 @@ warn_unreachable = true
 [[tool.mypy.overrides]]
 module = [
     "sklearn.*",
+    "langgraph.*",
+    "langchain_core.*",
 ]
 ignore_missing_imports = true
 
