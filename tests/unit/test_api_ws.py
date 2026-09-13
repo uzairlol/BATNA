@@ -19,6 +19,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from batna.api import main as api_main
 from batna.api.runner import StreamingSession
+from batna.config import settings
 
 
 class _DummyRedis:
@@ -150,7 +151,7 @@ def test_resolve_llms_scripted_is_hermetic() -> None:
     """Forcing ``scripted`` never touches the network and returns determinism."""
     from batna.api import runner
 
-    async def _go() -> tuple[str, str, str, str]:
+    async def _go() -> tuple[str, str | None, str, str]:
         mode, model, bl, sl = await runner._resolve_llms("scripted")
         return mode, model, type(bl).__name__, type(sl).__name__
 
@@ -175,13 +176,13 @@ def test_resolve_llms_live_default_falls_back_when_ollama_unreachable(
 
     monkeypatch.setattr(runner, "_live_llm_available", _unreachable)
 
-    async def _go() -> tuple[str, str]:
+    async def _go() -> tuple[str, str | None]:
         mode, model, *_ = await runner._resolve_llms()
         return mode, model
 
     mode, model = asyncio.run(_go())
     # It attempted the live path (a tell that the default is now "live")...
-    assert requested["model"] == runner.settings.agent_model
+    assert requested["model"] == settings.agent_model
     # ...and fell back to a deterministic session that still labels honestly.
     assert mode == "scripted"
     assert model == "scripted-deterministic"

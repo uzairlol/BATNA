@@ -237,7 +237,7 @@ class ScriptedNegotiatorLLM:
             target = anchor_price
 
         # Incorporate risk-checker output if present.
-        risk_blocked, risk_ref = self._risk_status(messages)
+        risk_blocked, _ = self._risk_status(messages)
         if risk_blocked:
             # Nudge toward the counterpart's price to escape the block.
             if counterpart_price is not None:
@@ -249,7 +249,7 @@ class ScriptedNegotiatorLLM:
 
         terms = self._default_terms(target)
         return (
-            f"{self._dialogue(citation, target, counterpart_price, risk_ref)}\n"
+            f"{self._dialogue(citation, target, counterpart_price, risk_blocked)}\n"
             f"OFFER_JSON={json.dumps(terms, sort_keys=True)}"
         )
 
@@ -258,7 +258,7 @@ class ScriptedNegotiatorLLM:
         citation: str,
         target: float,
         counterpart_price: float | None,
-        risk_ref: bool,
+        risk_blocked: bool,
     ) -> str:
         """Compose a conversational bargaining sentence for this turn.
 
@@ -305,7 +305,7 @@ class ScriptedNegotiatorLLM:
                     f"that leaves us too little margin. We've come down to {kb} "
                     f"and we will hold there until you commit to a longer term."
                 )
-        risk = " Our risk check flagged the prior terms, so we've adjusted." if risk_ref else ""
+        risk = " Our risk check flagged the prior terms, so we've adjusted." if risk_blocked else ""
         return f"For your {theirs}, {closing}{risk}"
 
     def _opening_anchor(self, derived_price: float) -> float:
