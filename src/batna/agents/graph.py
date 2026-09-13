@@ -31,10 +31,20 @@ from langgraph.graph.state import CompiledStateGraph
 from batna.agents.buyer_agent import BuyerAgent
 from batna.agents.negotiation_state import NegotiationState
 from batna.agents.seller_agent import SellerAgent
+from batna.agents.summary import build_session_summary
+from batna.agents.tool_call_log import ToolCallLog
 from batna.engine.acceptance import NegotiationOutcome, classify_outcome, is_acceptable
 from batna.engine.principal import Principal
 from batna.stream.events import EventType, build_event
 from batna.stream.sink import NullStreamSink, StreamSink
+
+
+def _count_tools(call_log: ToolCallLog) -> dict[str, int]:
+    """Tool-name to count from a ``ToolCallLog`` record."""
+    counts: dict[str, int] = {}
+    for entry in call_log.entries:
+        counts[entry.name] = counts.get(entry.name, 0) + 1
+    return counts
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +216,7 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
     async def finalize(state: NegotiationState) -> dict[str, Any]:
         reached_agreement = state.get("accepted_offer") is not None
         rounds = int(state.get("rounds_elapsed", 0))
-        max_rounds = int(state.get("max_rounds", 4))
+        effective = int(state.get("effective_max_rounds", state.get("max_rounds", 4)))
         explicit = state.get("outcome")
         if explicit is not None:
             outcome = explicit
@@ -216,7 +226,7 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
                 ctx.seller_principal,
                 reached_agreement=reached_agreement,
                 rounds_elapsed=rounds,
-                max_rounds=max_rounds,
+                max_rounds=effective,
             )
         accepted_offer = state.get("accepted_offer")
         await ctx.sink.emit(
@@ -273,8 +283,8 @@ def _terminal(state: NegotiationState) -> bool:
         return True
     if state.get("accepted_offer") is not None:
         return True
-    max_rounds = int(state.get("max_rounds", 4))
-    if int(state.get("rounds_elapsed", 0)) >= max_rounds:
+    bound = int(state.get("effective_max_rounds", state.get("max_rounds", 4)))
+    if int(state.get("rounds_elapsed", 0)) >= bound:
         return True
     return False
 
@@ -331,6 +341,7 @@ async def run_negotiation(
     scenario: dict[str, Any],
     *,
     max_rounds: int | None = None,
+    until_agreement: bool = False,
     sink: StreamSink | None = None,
     thread_id: str | None = None,
     run_mode: str | None = None,
@@ -345,10 +356,20 @@ async def run_negotiation(
     ``thread_id`` keys the in-memory checkpointer; pass a session-unique value
     when running concurrent negotiations so their checkpoints do not collide.
     An optional ``sink`` emits ``session_start`` / ``session_end`` around the run.
+
+    ``max_rounds`` is the *soft* round budget shown in the dashboard. When
+    ``until_agreement`` is True it is ignored and the loop runs until agreement,
+    deadlock (NO_ZOPA), or ``settings.agent_max_rounds_until_agreement`` as a
+    hard safety cap so a non-converging live model cannot loop forever.
     """
+    from datetime import UTC, datetime
+
     from batna.config import settings
 
-    rounds = max_rounds if max_rounds is not None else settings.agent_max_rounds
+    soft = max_rounds if max_rounds is not None else settings.agent_max_rounds
+    effective = (
+        settings.agent_max_rounds_until_agreement if until_agreement else soft
+    )
     active_sink: StreamSink = sink if sink is not None else NullStreamSink()
     app = build_negotiation_graph(
         buyer, seller, buyer_principal, seller_principal, sink=active_sink
@@ -357,7 +378,9 @@ async def run_negotiation(
         "scenario": scenario,
         "buyer_principal": buyer_principal,
         "seller_principal": seller_principal,
-        "max_rounds": rounds,
+        "max_rounds": soft,
+        "until_agreement": until_agreement,
+        "effective_max_rounds": effective,
         "turn_history": [],
         "events": [],
         "rounds_elapsed": 0,
@@ -369,7 +392,11 @@ async def run_negotiation(
         "accepted_offer": None,
         "outcome": None,
     }
-    start_payload: dict[str, Any] = {"max_rounds": rounds}
+    started_at = datetime.now(UTC).isoformat()
+    start_payload: dict[str, Any] = {
+        "max_rounds": soft,
+        "until_agreement": until_agreement,
+    }
     if run_mode is not None:
         start_payload["run_mode"] = run_mode
     if run_model is not None:
@@ -378,10 +405,21 @@ async def run_negotiation(
     try:
         config: RunnableConfig = {"configurable": {"thread_id": thread_id or "phase6-run"}}
         result = cast(dict[str, Any], await app.ainvoke(initial, config=config))
+        finished_at = datetime.now(UTC).isoformat()
+        summary = build_session_summary(
+            result,
+            buyer_principal=buyer_principal,
+            seller_principal=seller_principal,
+            buyer_tool_counts=_count_tools(buyer.call_log),
+            seller_tool_counts=_count_tools(seller.call_log),
+            started_at=started_at,
+            finished_at=finished_at,
+            until_agreement=until_agreement,
+        )
         await active_sink.emit(
             build_event(
                 EventType.SESSION_END,
-                {"outcome": str(result.get("outcome")) if result.get("outcome") else None},
+                {"outcome": summary["outcome"], "summary": summary},
             )
         )
     except Exception as exc:
@@ -391,4 +429,5 @@ async def run_negotiation(
         raise
     result["run_mode"] = run_mode
     result["run_model"] = run_model
+    result["summary"] = summary
     return result

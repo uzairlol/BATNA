@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # closes after ~7-8 exchanges rather than on the first offer. This higher
     # default gives the graph room to run a genuine multi-round negotiation.
     agent_max_rounds: int = 12
+    # Phase 8 "continue until agreement" mode: the soft round budget
+    # (agent_max_rounds) is ignored and negotiation runs until agreement,
+    # deadlock (NO_ZOPA), or this hard safety cap so a non-converging live
+    # model can never loop forever.
+    agent_max_rounds_until_agreement: int = 100
     agent_tool_call_log_dir: str = ""  # optional directory for durable JSONL call logs
 
     # Phase 6 full-loop negotiation. Structured multi-term offers are parsed from

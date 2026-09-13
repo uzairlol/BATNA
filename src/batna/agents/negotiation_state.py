@@ -29,6 +29,8 @@ class NegotiationState(TypedDict, total=False):
     buyer_principal: Principal
     seller_principal: Principal
     max_rounds: int
+    until_agreement: bool
+    effective_max_rounds: int
 
     # Latest proposals (ContractTerms) and the justifications that produced them.
     buyer_offer: ContractTerms | None

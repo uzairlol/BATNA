@@ -63,8 +63,12 @@ app = FastAPI(
 
 
 @app.post("/api/sessions", status_code=201)
-async def create_session(kind: str = "wide") -> dict[str, Any]:
-    """Create a session bound to a Redis sink; the caller then starts it."""
+async def create_session(kind: str = "wide", until_agreement: bool = False) -> dict[str, Any]:
+    """Create a session bound to a Redis sink; the caller then starts it.
+
+    ``until_agreement`` switches the loop from the ``max_rounds`` budget to a
+    "run until agreement" mode with a hard safety cap in settings.
+    """
     if kind not in {"wide", "narrow", "asymmetric", "no_zopa"}:
         raise HTTPException(status_code=422, detail=f"unknown kind: {kind}")
     session_id = uuid.uuid4().hex
@@ -74,9 +78,16 @@ async def create_session(kind: str = "wide") -> dict[str, Any]:
         channel_prefix=settings.redis_pubsub_channel_prefix,
         buffer_max=settings.stream_event_buffer_max,
     )
-    session = StreamingSession(session_id=session_id, sink=sink, kind=kind)
+    session = StreamingSession(
+        session_id=session_id, sink=sink, kind=kind, until_agreement=until_agreement
+    )
     _sessions[session_id] = session
-    return {"session_id": session_id, "kind": kind, "status": session.status}
+    return {
+        "session_id": session_id,
+        "kind": kind,
+        "until_agreement": until_agreement,
+        "status": session.status,
+    }
 
 
 @app.get("/api/sessions/{session_id}")
@@ -87,6 +98,7 @@ async def get_session(session_id: str) -> dict[str, Any]:
     return {
         "session_id": session.session_id,
         "kind": session.kind,
+        "until_agreement": session.until_agreement,
         "status": session.status,
         "run_mode": session.run_mode,
         "run_model": session.run_model,
@@ -110,7 +122,10 @@ async def start_negotiation(session_id: str) -> dict[str, Any]:
 async def _drive_session(session: StreamingSession) -> None:
     try:
         session.result = await run_streaming_negotiation(
-            session.session_id, session.sink, kind=session.kind
+            session.session_id,
+            session.sink,
+            kind=session.kind,
+            until_agreement=session.until_agreement,
         )
         session.run_mode = session.result.get("run_mode") or "scripted"
         session.run_model = session.result.get("run_model") or ""

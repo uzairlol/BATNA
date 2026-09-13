@@ -52,6 +52,7 @@ class StreamingSession:
     session_id: str
     sink: RedisStreamSink
     kind: str = "wide"  # ZOPA config: wide | narrow | asymmetric | no_zopa
+    until_agreement: bool = False  # run to agreement (hard cap) instead of max_rounds
     status: str = "created"  # created | running | done | error
     result: dict[str, Any] = field(default_factory=dict)
     run_mode: str | None = None  # "scripted" | "live" — which LLM actually drove it
@@ -118,6 +119,7 @@ async def run_streaming_negotiation(
     kind: str = "wide",
     server: str = "market_data",
     max_rounds: int = 12,
+    until_agreement: bool = False,
     llm_mode: str | None = None,
 ) -> dict[str, Any]:
     """Run a full negotiation through the shared sink and return final state.
@@ -126,6 +128,8 @@ async def run_streaming_negotiation(
     session), so buyer and seller never contend over one subprocess.
     ``max_rounds`` bounds the multi-round exchange (commonly 12; the scripted
     negotiators concede in ~10% steps, so a deal closes after several turns).
+    When ``until_agreement`` is True the loop ignores ``max_rounds`` and runs
+    until agreement or the hard cap in settings (see ``run_negotiation``).
     ``llm_mode`` overrides ``settings.llm_mode`` (live default) — tests pin
     ``"scripted"`` to stay hermetic.
     """
@@ -153,6 +157,7 @@ async def run_streaming_negotiation(
         seller_principal,
         _DEFAULT_SCENARIO,
         max_rounds=max_rounds,
+        until_agreement=until_agreement,
         sink=sink,
         thread_id=f"session-{session_id}",
         run_mode=run_mode,

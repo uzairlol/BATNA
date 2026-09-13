@@ -5,6 +5,7 @@ interface TranscriptProps {
   events: StreamEvent[];
   mode: string | null;
   model: string | null;
+  untilAgreement?: boolean;
 }
 
 const TOOL_LABEL: Record<string, string> = {
@@ -50,7 +51,12 @@ function outcomeSentence(outcome: unknown): string {
   return o;
 }
 
-export default function Transcript({ events, mode, model }: TranscriptProps) {
+export default function Transcript({
+  events,
+  mode,
+  model,
+  untilAgreement = false,
+}: TranscriptProps) {
   if (events.length === 0) {
     return (
       <div className="transcript">
@@ -65,7 +71,13 @@ export default function Transcript({ events, mode, model }: TranscriptProps) {
   return (
     <div className="transcript">
       {events.map((ev) => (
-        <Row key={`${ev.session_id}-${ev.seq}`} ev={ev} mode={mode} model={model} />
+        <Row
+          key={`${ev.session_id}-${ev.seq}`}
+          ev={ev}
+          mode={mode}
+          model={model}
+          untilAgreement={untilAgreement}
+        />
       ))}
     </div>
   );
@@ -75,10 +87,12 @@ function Row({
   ev,
   mode,
   model,
+  untilAgreement,
 }: {
   ev: StreamEvent;
   mode: string | null;
   model: string | null;
+  untilAgreement: boolean;
 }) {
   const p = ev.payload ?? {};
   switch (ev.type) {
@@ -88,8 +102,8 @@ function Row({
           <div className="meta-title">Negotiation session</div>
           <div className="meta-line">
             mode: <b>{mode ?? "…"}</b>
-            {model ? ` · model: ${model}` : ""} · max rounds:{" "}
-            {String(p.max_rounds ?? "?")}
+            {model ? ` · model: ${model}` : ""} · stop:{" "}
+            <b>{untilAgreement ? "until agreement" : `round ${String(p.max_rounds ?? "?")}`}</b>
           </div>
         </div>
       );

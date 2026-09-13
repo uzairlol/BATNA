@@ -172,6 +172,53 @@ async def test_graph_round_exhaustion_without_agreement() -> None:
     assert result["seller_offer"] is not None
 
 
+async def test_graph_until_agreement_ignores_soft_budget() -> None:
+    # In "until agreement" mode the soft `max_rounds` budget is ignored; the loop
+    # keeps going past it until agreement (or the hard cap in settings). A 1-round
+    # budget that would always exhaust instead reaches agreement here.
+    registry = _FakeRegistry([_MARKET_TOOL], {"get_market_benchmark": _benchmark_response})
+    buyer, seller = _make_agents(registry)
+    buyer_p, seller_p = _wide_zopa_principals()
+    buyer_p = buyer_p.model_copy(
+        update={
+            "authorized_mandate": {
+                **buyer_p.authorized_mandate,
+                "price": (80_000.0, 95_000.0),
+            }
+        }
+    )
+
+    result = await run_negotiation(
+        buyer, seller, buyer_p, seller_p, _SCENARIO, max_rounds=1, until_agreement=True
+    )
+
+    assert result["outcome"] is NegotiationOutcome.AGREEMENT
+    assert result["accepted_offer"] is not None
+    assert result["rounds_elapsed"] > 1  # ran well past the soft 1-round budget
+
+
+async def test_graph_summary_attached_to_result() -> None:
+    registry = _FakeRegistry([_MARKET_TOOL], {"get_market_benchmark": _benchmark_response})
+    buyer, seller = _make_agents(registry)
+    buyer_p, seller_p = _wide_zopa_principals()
+
+    result = await run_negotiation(buyer, seller, buyer_p, seller_p, _SCENARIO, max_rounds=12)
+
+    summary = result["summary"]
+    assert summary["outcome"] == NegotiationOutcome.AGREEMENT.value
+    assert summary["agreed_price"] is not None
+    assert summary["rounds_elapsed"] == result["rounds_elapsed"]
+    assert summary["until_agreement"] is False
+    # Per-side offer trajectories line up with the accepted price.
+    assert summary["buyer"]["offers"]
+    assert summary["seller"]["offers"]
+    assert summary["price_zone"]["buyer_min"] == 60_000.0
+    assert summary["price_zone"]["seller_max"] == 130_000.0
+    # Both sides used tools (grounded proposals), surfaced per side.
+    assert summary["tool_breakdown"]["buyer"]["get_market_benchmark"] >= 1
+    assert summary["tool_breakdown"]["seller"]["get_market_benchmark"] >= 1
+
+
 async def test_build_graph_compiles() -> None:
     registry = _FakeRegistry([_MARKET_TOOL], {"get_market_benchmark": _benchmark_response})
     buyer, seller = _make_agents(registry)

@@ -89,6 +89,22 @@ def test_create_session_and_validate_kind() -> None:
     assert bad.status_code == 422
 
 
+def test_create_session_until_agreement_flag() -> None:
+    client = TestClient(api_main.app)
+    resp = client.post("/api/sessions", params={"kind": "wide", "until_agreement": "true"})
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["until_agreement"] is True
+    sid = body["session_id"]
+    # The flag is persisted on the session and surfaced back via GET.
+    assert api_main._sessions[sid].until_agreement is True
+    assert client.get(f"/api/sessions/{sid}").json()["until_agreement"] is True
+
+    # Default (omitted) stays the classic round-budget mode.
+    default_resp = client.post("/api/sessions", params={"kind": "wide"})
+    assert default_resp.json()["until_agreement"] is False
+
+
 def test_unknown_session_is_404() -> None:
     client = TestClient(api_main.app)
     assert client.get("/api/sessions/does-not-exist").status_code == 404
