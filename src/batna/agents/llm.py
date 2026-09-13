@@ -249,9 +249,69 @@ class ScriptedNegotiatorLLM:
 
         terms = self._default_terms(target)
         return (
-            f"Proposal grounded in {citation}."
-            + (" Risk check flagged the previous proposal; adjusted." if risk_ref else "")
-            + f"\nOFFER_JSON={json.dumps(terms, sort_keys=True)}"
+            f"{self._dialogue(citation, target, counterpart_price, risk_ref)}\n"
+            f"OFFER_JSON={json.dumps(terms, sort_keys=True)}"
+        )
+
+    def _dialogue(
+        self,
+        citation: str,
+        target: float,
+        counterpart_price: float | None,
+        risk_ref: bool,
+    ) -> str:
+        """Compose a conversational bargaining sentence for this turn.
+
+        All figures come from the already-computed ``target`` (the engine and the
+        surrounding graph enforce the real mandates; this text is purely for the
+        human-readable transcript). ``citation`` is the grounded market phrase.
+        """
+        side = self.role
+        # Format every price against the exact ``terms.price`` value (round(target, 2))
+        # used by ``_default_terms`` so the conversational figure equals the own-term
+        # that ``verify_offer_grounded`` auto-excludes. Whole-dollar formatting would
+        # round to a different figure and trip the grounding audit.
+        kb = f"${round(target, 2):,.2f}"
+        if counterpart_price is None:
+            # Opening offer.
+            if side == "buyer":
+                return (
+                    f"Market grounding from {citation}. We open at {kb} — a reasonable "
+                    f"place to start from the buyer's side of the table, with payment "
+                    f"terms and a firm liability cap as our anchors."
+                )
+            return (
+                f"Market grounding from {citation}. We open at {kb}, reflecting the "
+                f"service quality — and we'll hold here until we see real commitment "
+                f"on delivery and term length."
+            )
+        theirs = f"${round(counterpart_price, 2):,.2f}"
+        if side == "buyer":
+            if target >= counterpart_price * 0.99:
+                closing = (
+                    f"you're essentially in our zone — we can meet around {kb} and "
+                    f"that's as far as we will stretch this cycle."
+                )
+            else:
+                closing = (
+                    f"that still sits above where we can land unless you improve "
+                    f"delivery and hold the liability cap. We've moved up to {kb}."
+                )
+        else:
+            if target <= counterpart_price * 1.01:
+                closing = (
+                    f"that is close enough — we can meet you at {kb} today."
+                )
+            else:
+                closing = (
+                    f"that leaves us too little margin. We've come down to {kb} "
+                    f"and we will hold there until you commit to a longer term."
+                )
+        risk = (
+            " Our risk check flagged the prior terms, so we've adjusted." if risk_ref else ""
+        )
+        return (
+            f"For your {theirs}, {closing}{risk}"
         )
 
     def _opening_anchor(self, derived_price: float) -> float:
@@ -306,11 +366,13 @@ class ScriptedNegotiatorLLM:
     def _concession_target(self, counterpart_price: float, own_base: float) -> float:
         """Blend our previous price and the counterpart's price with a fixed step.
 
-        The step is 20% of the remaining gap toward the counterpart, so a wide
-        70k/130k opening converges into the agreement window within ~3-4 rounds
-        (verified against the engine's acceptance thresholds in the graph tests).
+        The step is 10% of the remaining gap toward the counterpart, so a wide
+        70k/130k opening takes ~7-8 rounds to converge into the agreement window
+        instead of closing in a couple of exchanges (verified against the engine's
+        acceptance thresholds in the graph tests). Small, measured concessions —
+        the way a real negotiator concedes a little at a time.
         """
-        return own_base + 0.20 * (counterpart_price - own_base)
+        return own_base + 0.10 * (counterpart_price - own_base)
 
     def _risk_status(self, messages: list[dict[str, Any]]) -> tuple[bool, str]:
         for message in reversed(messages):

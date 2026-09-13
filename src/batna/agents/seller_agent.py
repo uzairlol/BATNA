@@ -33,7 +33,12 @@ class SellerAgent(NegotiatorAgent):
             "real fetched data, and check_contract_risk before finalizing it.\n"
             "Negotiation guidance: prefer higher price, longer delivery SLA, shorter "
             "payment terms, lower liability cap, shorter duration, and shorter termination "
-            "notice when they are within your mandate."
+            "notice when they are within your mandate.\n"
+            "Negotiate in natural conversational language: acknowledge the counterpart's "
+            "latest position, explain your own move in plain prose, and push back or "
+            "signal where you are willing to bend. Concede in small, deliberate steps so "
+            "the exchange spans several rounds; do not jump straight to your floor. "
+            "Keep the conversational part free of JSON."
         ).format(
             good_service=scenario.get("good_service", "goods/services"),
             industry=scenario.get("industry", "the industry"),

@@ -39,7 +39,7 @@ async def test_redis_stream_sink_records_tool_call_payloads() -> None:
         sink = RedisStreamSink(redis, session_id, buffer_max=500)
 
         result = await run_streaming_negotiation(
-            session_id, sink, kind="wide", max_rounds=6, llm_mode="scripted"
+            session_id, sink, kind="wide", max_rounds=12, llm_mode="scripted"
         )
         assert result["outcome"] is not None
 

@@ -113,7 +113,7 @@ async def test_graph_reaches_agreement() -> None:
     buyer, seller = _make_agents(registry)
     buyer_p, seller_p = _wide_zopa_principals()
 
-    result = await run_negotiation(buyer, seller, buyer_p, seller_p, _SCENARIO, max_rounds=6)
+    result = await run_negotiation(buyer, seller, buyer_p, seller_p, _SCENARIO, max_rounds=12)
 
     assert result["outcome"] is NegotiationOutcome.AGREEMENT
     assert result["accepted_offer"] is not None

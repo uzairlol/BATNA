@@ -117,13 +117,15 @@ async def run_streaming_negotiation(
     *,
     kind: str = "wide",
     server: str = "market_data",
-    max_rounds: int = 6,
+    max_rounds: int = 12,
     llm_mode: str | None = None,
 ) -> dict[str, Any]:
     """Run a full negotiation through the shared sink and return final state.
 
     Creates a fresh real MCP registry per side (each call opens its own stdio
     session), so buyer and seller never contend over one subprocess.
+    ``max_rounds`` bounds the multi-round exchange (commonly 12; the scripted
+    negotiators concede in ~10% steps, so a deal closes after several turns).
     ``llm_mode`` overrides ``settings.llm_mode`` (live default) — tests pin
     ``"scripted"`` to stay hermetic.
     """

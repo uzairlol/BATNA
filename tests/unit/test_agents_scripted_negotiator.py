@@ -74,8 +74,8 @@ async def test_buyer_concedes_toward_counterpart() -> None:
     final = await client.decide(messages, _TOOLS)
     assert final.final_text is not None
     terms = json.loads(final.final_text.split("OFFER_JSON=", 1)[1])
-    # Buyer anchor 70k -> moves 20% of the gap toward 130k => 82k.
-    assert 80_000 < terms["price"] < 90_000
+    # Buyer anchor 70k -> moves 10% of the gap toward 130k => 76k.
+    assert 72_000 < terms["price"] < 80_000
 
 
 async def test_seller_concedes_toward_counterpart() -> None:

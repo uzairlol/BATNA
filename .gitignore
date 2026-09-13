@@ -75,3 +75,7 @@ dashboard/node_modules/
 dashboard/dist/
 npm-debug.log*
 *.local
+
+# Local FastAPI server logs (created when launching uvicorn manually)
+server.out.log
+server.err.log

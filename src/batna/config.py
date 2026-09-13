@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     # keep the agentic loop finite and auditable. Override via env or .env.
     agent_model: str = "qwen2.5:7b"
     agent_max_tool_calls: int = 6
-    agent_max_rounds: int = 4
+    # Phase 6 negotiation clock: agents concede in small (10%) steps, so a deal
+    # closes after ~7-8 exchanges rather than on the first offer. This higher
+    # default gives the graph room to run a genuine multi-round negotiation.
+    agent_max_rounds: int = 12
     agent_tool_call_log_dir: str = ""  # optional directory for durable JSONL call logs
 
     # Phase 6 full-loop negotiation. Structured multi-term offers are parsed from

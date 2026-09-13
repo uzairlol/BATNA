@@ -233,7 +233,7 @@ async def run_full_loop_dod_eval(
     runs_per_config: int = 5,
     *,
     configs: tuple[str, ...] = ("wide", "narrow", "no_zopa", "asymmetric"),
-    max_rounds: int = 6,
+    max_rounds: int = 12,
 ) -> FullLoopResult:
     """Run the Phase 6 full-loop DoD evaluation over varied ZOPA configurations.
 

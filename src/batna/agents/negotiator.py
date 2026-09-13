@@ -26,7 +26,7 @@ from typing import Any
 from uuid import uuid4
 
 from batna.agents.llm import LLMClient, ToolCall
-from batna.agents.offers import OfferParseError, ParsedOffer, parse_offer
+from batna.agents.offers import OfferParseError, ParsedOffer, parse_offer, speech_from_text
 from batna.agents.tool_call_log import ToolCallLog
 from batna.agents.tool_provider import ToolProvider
 from batna.config import settings
@@ -43,6 +43,12 @@ _ROLE_AGNOSTIC_TOOL_PROMPT = (
     "is unavailable, say so explicitly rather than inventing a figure.\n"
     "Use the check_contract_risk tool on any proposal before you finalize it, passing "
     "the price mandate your principal authorized.\n"
+    "Negotiate conversationally: before the machine payload, write two or three "
+    "natural sentences addressed to the other party (acknowledge their last position, "
+    "explain your move, and push back or signal where you are willing to bend). Concede "
+    "in small, deliberate steps rather than jumping straight to your target — a real "
+    "negotiation is a sequence of measured concessions. Do not put any machine syntax "
+    "or JSON in the conversational part.\n"
     "When you are ready to make your proposal, end your message with a line of the "
     "form OFFER_JSON=<json> containing ALL of the following six terms: price, "
     "payment_terms_days, delivery_sla_days, liability_cap_pct, "
@@ -192,7 +198,7 @@ class NegotiatorAgent(ABC):
                 await self._sink.emit(
                     build_event(
                         EventType.REASONING,
-                        {"text": action.final_text},
+                        {"text": speech_from_text(action.final_text)},
                         side=self._role,
                     )
                 )

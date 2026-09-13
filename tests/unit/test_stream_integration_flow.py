@@ -55,7 +55,7 @@ async def test_full_negotiation_streams_ordered_events(
         buyer_p,
         seller_p,
         _DEFAULT_SCENARIO,
-        max_rounds=6,
+        max_rounds=12,
         sink=sink,
         thread_id="sess-flow-1",
     )
@@ -109,7 +109,7 @@ async def test_tool_call_payloads_carry_real_arguments_and_response(
         buyer_p,
         seller_p,
         _DEFAULT_SCENARIO,
-        max_rounds=6,
+        max_rounds=12,
         sink=sink,
         thread_id="sess-payload-2",
     )
@@ -158,7 +158,7 @@ async def test_buyer_and_seller_share_one_session_sink(
         buyer_p,
         seller_p,
         _DEFAULT_SCENARIO,
-        max_rounds=6,
+        max_rounds=12,
         sink=sink,
         thread_id="sess-shared-3",
     )
@@ -193,7 +193,7 @@ async def test_run_mode_is_threaded_into_session_start_and_result(
         buyer_p,
         seller_p,
         _DEFAULT_SCENARIO,
-        max_rounds=6,
+        max_rounds=12,
         sink=sink,
         thread_id="sess-runmode-4",
         run_mode="live",

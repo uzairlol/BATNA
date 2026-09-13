@@ -47,6 +47,7 @@ __all__ = [
     "ParsedOffer",
     "format_offer",
     "parse_offer",
+    "speech_from_text",
 ]
 
 OFFER_JSON_PREFIX = "OFFER_JSON="
@@ -117,3 +118,28 @@ def format_offer(terms: ContractTerms) -> str:
     """Serialize a ``ContractTerms`` object in the agent-emittable convention."""
     payload = terms.model_dump()
     return f"{OFFER_JSON_PREFIX}{json.dumps(payload, sort_keys=True)}"
+
+
+# Whitespace before/after a JSON payload that we want to drop from speech.
+_SPEECH_MARKER_RE = re.compile(r"OFFER_JSON\s*=\s*(\{.*\})", re.DOTALL | re.IGNORECASE)
+_SPEECH_FENCED_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+_SPEECH_BLANK_LINES_RE = re.compile(r"\n{3,}")
+_SPEECH_LEADING_RE = re.compile(r"^\s*(?:and\s+)?(?:then\s+)?", re.IGNORECASE)
+
+
+def speech_from_text(text: str) -> str:
+    """Return the conversational portion of an agent's final text.
+
+    The LLM emits a short natural-language justification together with a machine
+    directive that carries the structured offer (``OFFER_JSON=<json>`` or a
+    fenced `````json```` block). The dashboard streams that raw text to the UI;
+    stripping the payload keeps the live transcript conversational instead of
+    printing raw JSON. Falls back to the input if nothing to strip.
+    """
+    cleaned = _SPEECH_MARKER_RE.sub("", text)
+    # A lone OFFER_JSON that the marker regex could not span (e.g. no braces yet).
+    cleaned = re.sub(r"\bOFFER_JSON\s*=\s*\S+", "", cleaned)
+    cleaned = _SPEECH_FENCED_RE.sub("", cleaned)
+    cleaned = _SPEECH_LEADING_RE.sub("", cleaned)
+    cleaned = _SPEECH_BLANK_LINES_RE.sub("\n\n", cleaned)
+    return cleaned.strip()
