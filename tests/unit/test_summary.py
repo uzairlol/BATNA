@@ -7,6 +7,8 @@ observed through a live negotiation.
 
 from __future__ import annotations
 
+from typing import cast
+
 from batna.agents.summary import build_session_summary
 from batna.engine.acceptance import NegotiationOutcome
 from batna.engine.contract import ContractTerms
@@ -55,11 +57,11 @@ def _terms(price: float, **overrides: float | int) -> dict[str, object]:
         "contract_duration_months": 24,
         "termination_notice_days": 60,
     }
-    base.update(overrides)  # type: ignore[arg-type]
+    base.update(overrides)
     return base
 
 
-def _agreement_result(buyer_p: Principal, seller_p: Principal) -> dict:
+def _agreement_result(buyer_p: Principal, seller_p: Principal) -> dict[str, object]:
     turn_history = [
         {"role": "buyer", "terms": _terms(90_000.0)},
         {"role": "seller", "terms": _terms(120_000.0)},
@@ -83,7 +85,7 @@ def _agreement_result(buyer_p: Principal, seller_p: Principal) -> dict:
     ]
     return {
         "outcome": NegotiationOutcome.AGREEMENT,
-        "accepted_offer": ContractTerms(**_terms(104_000.0)),  # type: ignore[arg-type]
+        "accepted_offer": ContractTerms(**_terms(104_000.0)),
         "rounds_elapsed": 3,
         "max_rounds": 12,
         "turn_history": turn_history,
@@ -141,7 +143,8 @@ def test_summary_no_agreement_gap_and_until_agreement_flag() -> None:
     result["outcome"] = NegotiationOutcome.ROUND_EXHAUSTION
     result["accepted_offer"] = None
     # Force a gap: last buyer offer 99k, last seller offer 112k.
-    result["turn_history"][-1]["terms"] = _terms(112_000.0)
+    turn_history = cast("list[dict[str, object]]", result["turn_history"])
+    turn_history[-1]["terms"] = _terms(112_000.0)
 
     summary = build_session_summary(
         result,
