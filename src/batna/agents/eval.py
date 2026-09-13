@@ -26,7 +26,7 @@ from typing import Any
 
 from batna.agents.buyer_agent import BuyerAgent
 from batna.agents.graph import run_negotiation
-from batna.agents.llm import ScriptedLLMClient, ScriptedNegotiatorLLM
+from batna.agents.llm import ScriptedNegotiatorLLM
 from batna.agents.seller_agent import SellerAgent
 from batna.agents.tool_provider import ToolProvider
 from batna.agents.verification import (
@@ -92,7 +92,13 @@ async def run_dod_eval(
     for _ in range(runs):
         registry = ToolRegistryClient(command=command, args=args, env=server_env)
         provider = ToolProvider(registry)
-        agent = BuyerAgent(llm=ScriptedLLMClient(), provider=provider)
+        # The negotiator contract requires a full six-term OFFER_JSON payload, so
+        # use the phase 6 scripted negotiator (which emits that and consults a
+        # grounding tool first) rather than the phase 5 price-only client.
+        agent = BuyerAgent(
+            llm=ScriptedNegotiatorLLM(role="buyer", base_price=starting_price),
+            provider=provider,
+        )
         await agent.discover_tools()
         offer = await agent.opening_offer(active_scenario)
         if len(agent.call_log) >= 1:
