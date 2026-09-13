@@ -1,15 +1,28 @@
+/* =====================================================================
+   BATNA dashboard — iMessage-style dark theme
+   A polished messaging UI: contact "business chat" header, a phone-frame
+   stage with iMessage bubbles, action lines, offer-cards, composer bar.
+   ===================================================================== */
+
 :root {
   color-scheme: dark;
-  --bg: #0d1117;
-  --panel: #161b22;
-  --panel-2: #1c2330;
-  --border: #2d333b;
-  --text: #e6edf3;
-  --muted: #8b949e;
-  --accent: #58a6ff;
-  --green: #3fb950;
-  --red: #f85149;
-  --amber: #d29922;
+  /* System chrome (outside the phone). */
+  --chrome: #16161b;
+  --chrome-2: #1f1f24;
+  --border: #2a2a30;
+  --text: #f2f2f7;
+  --muted: #98989f;
+  /* Messenger (inside the phone). */
+  --thread-bg: #1b1b1e;
+  --recv-bubble: #2a2a2e;
+  /* Brand / parties. */
+  --buyer: #0b84fe; /* iMessage sent-blue */
+  --buyer-bright: #4aa3ff;
+  --seller: #e0a13b;
+  --green: #30d158;
+  --red: #ff453a;
+  --amber: #ffd60a;
+  --accent: var(--buyer);
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
@@ -24,14 +37,21 @@ body {
 }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #23232a 0%, #101013 45%, #08080a 100%)
+    fixed;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Fixed-height app column: chrome up top, a single scrolling pane below it.
-   The pane is a normal-flow flex sibling (not absolutely/sticky over content),
-   so nothing can hide beneath the chrome. */
+button {
+  font-family: inherit;
+}
+
+/* ---- App shell ------------------------------------------------------ */
+
 .app {
   height: 100vh;
   display: flex;
@@ -39,39 +59,43 @@ body {
   min-height: 0;
 }
 
-.topbar {
+/* Slim control chrome above the phone. */
+.chrome {
   flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+}
+
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  padding: 14px 22px 8px;
 }
 
 .brand {
   font-weight: 700;
   font-size: 18px;
+  letter-spacing: -0.02em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .brand-dot {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 8px var(--green);
+  box-shadow: 0 0 10px var(--green);
   flex: none;
 }
 
 .brand-ph {
   color: var(--muted);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .controls {
@@ -86,48 +110,67 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 select,
-button {
-  background: var(--panel-2);
+.controls button {
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 10px;
+  border-radius: 10px;
+  padding: 7px 12px;
   font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
 }
 
-button {
-  cursor: pointer;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #06121f;
+select:hover,
+.controls button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.controls button {
+  background: var(--buyer);
+  border-color: var(--buyer);
+  color: #fff;
   font-weight: 600;
 }
 
+.controls button:hover:not(:disabled) {
+  background: var(--buyer-bright);
+}
+
+.controls button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+.checkbox-label input {
+  accent-color: var(--buyer);
+  width: 15px;
+  height: 15px;
+}
+
+/* Status pills. */
 .statusbar {
   flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  gap: 7px;
+  padding: 2px 22px 10px;
 }
 
 .pill {
   font-family: var(--mono);
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: var(--panel-2);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
   color: var(--muted);
   white-space: nowrap;
@@ -135,76 +178,667 @@ button:disabled {
 
 .pill-open {
   color: var(--green);
-  border-color: var(--green);
+  border-color: rgba(48, 209, 88, 0.5);
 }
 
-.pill-muted {
-  color: var(--muted);
-  border-color: var(--border);
+.pill-accent {
+  color: var(--buyer-bright);
+  border-color: rgba(74, 163, 255, 0.5);
+}
+
+.pill-connecting {
+  color: var(--amber);
+  border-color: rgba(255, 214, 10, 0.5);
 }
 
 .pill-error {
   color: var(--red);
-  border-color: var(--red);
+  border-color: rgba(255, 69, 58, 0.5);
+}
+/* ---- Stage & phone frame -------------------------------------------- */
+
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0 24px 24px;
 }
 
-/* View switcher (Negotiation / Raw event log). */
+.phone {
+  width: min(100%, 480px);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--thread-bg);
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 10px rgba(0, 0, 0, 0.55),
+    0 0 0 11px #34343b;
+  overflow: hidden;
+}
+
+/* ---- Contact card (iMessage business-chat header) ------------------- */
+
+.contact {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(11, 132, 254, 0.12), transparent 70%);
+}
+
+.contact-stack {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+
+.avatar {
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+}
+
+.contact-stack .avatar {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 2px solid var(--thread-bg);
+  font-size: 14px;
+}
+
+.avatar-buyer {
+  background: linear-gradient(135deg, var(--buyer), #0051ff);
+}
+
+.avatar-seller {
+  background: linear-gradient(135deg, var(--seller), #b06a12);
+}
+
+.contact-stack .avatar-buyer {
+  left: 0;
+  top: 0;
+}
+
+.contact-stack .avatar-seller {
+  right: 0;
+  bottom: 0;
+}
+
+.contact-stack .contact-live {
+  position: absolute;
+  right: -1px;
+  top: -2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--thread-bg);
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.8);
+}
+
+.contact-stack .contact-live.pending {
+  background: var(--amber);
+  box-shadow: 0 0 8px rgba(255, 214, 10, 0.7);
+  animation: pulse 1s infinite;
+}
+
+.contact-stack .contact-live:not(.on):not(.pending) {
+  background: var(--muted);
+  box-shadow: none;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.contact-mid {
+  min-width: 0;
+  flex: 1;
+}
+
+.contact-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.contact-name i {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.contact-tick {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--buyer);
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.contact-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.contact-status.on {
+  color: var(--green);
+}
+
+.contact-status.pending {
+  color: var(--amber);
+}
+
+.contact-mode {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.contact-session {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-pills {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.pill-soft {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+/* ---- View toggle (Negotiation / Raw event log) ---------------------- */
+
 .view-toggle {
   flex-shrink: 0;
   display: flex;
-  gap: 6px;
-  padding: 10px 20px 0;
+  gap: 4px;
+  padding: 10px 18px 0;
 }
 
 .view-toggle button {
+  flex: 1;
   border: 1px solid var(--border);
-  background: var(--panel-2);
+  background: transparent;
   color: var(--muted);
-  border-radius: 6px 6px 0 0;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
 .view-toggle button.active {
   color: var(--text);
-  background: var(--bg);
-  border-color: var(--border);
-  border-bottom-color: var(--bg);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
-/* The single scrolling pane (feed or transcript render here). */
+/* ---- Scrollable view body & message thread -------------------------- */
+
 .view-body {
   flex: 1;
   min-height: 0;
-  overflow: hidden;          /* contain scrolling inside child */
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
 }
 
-.transcript,
+.thread,
 .feed {
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px 20px 40px;
+  overscroll-behavior: contain;
+}
+
+/* Subtle gradient mask at the top like iMessage. */
+.thread::before,
+.feed::before {
+  content: "";
+  display: block;
+  height: 22px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, var(--thread-bg) 30%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+
+.empty-emoji {
+  font-size: 50px;
+  margin-bottom: 16px;
+  opacity: 0.7;
+}
+
+.empty p {
+  margin: 6px 0;
+}
+
+.empty p:first-of-type {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Date separator / timestamp group label (centered like iMessage). */
+.thread-date {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 6px 0 16px;
+}
+
+/* ---- iMessage bubbles ----------------------------------------------- */
+
+.msg {
+  display: flex;
+  margin: 1px 14px;
+  gap: 0;
+}
+
+.msg-sent {
+  justify-content: flex-end;
+}
+
+.msg-recv {
+  justify-content: flex-start;
+}
+
+/* Avatars: shown on the first message in each run. */
+.msg .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  margin: auto 8px 0 0;
+  flex: none;
+  font-size: 12px;
+  align-self: flex-end;
+}
+
+.msg.grouped .avatar {
+  visibility: hidden;
+}
+
+/* Bubble shell. */
+.bubble {
+  position: relative;
+  max-width: 76%;
+  padding: 9px 14px 10px;
+}
+
+.msg-first-bubble {
+  border-radius: 18px;
+}
+
+.msg-sent .bubble {
+  background: var(--buyer);
+  color: #fff;
+}
+
+.msg-recv .bubble {
+  background: var(--recv-bubble);
+  color: var(--text);
+}
+
+/* Bubble tail radius on first-in-group. */
+.msg.first.msg-sent .bubble {
+  border-top-right-radius: 18px;
+  border-bottom-right-radius: 18px;
+  border-bottom-left-radius: 18px;
+  border-top-left-radius: 4px;
+}
+
+.msg.first.msg-recv .bubble {
+  border-top-left-radius: 18px;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  border-top-right-radius: 4px;
+}
+
+/* Grouped consecutive messages tighten up. */
+.msg.grouped.msg-sent .bubble {
+  border-radius: 18px 18px 6px 18px;
+}
+
+.msg.grouped.msg-recv .bubble {
+  border-radius: 18px 18px 18px 6px;
+}
+
+/* Bubble content. */
+.bubble-time {
+  display: block;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 3px;
+  font-weight: 500;
+}
+
+.msg-recv .bubble-time {
+  color: var(--muted);
+}
+
+.bubble-text {
+  font-size: 15.5px;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Read tick (✓✓) under sent bubbles, like iMessage delivered. */
+.read-tick {
+  display: block;
+  text-align: right;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
+  letter-spacing: 2px;
+}
+
+/* ---- Offer cards (rich iMessage "attachment" style) ----------------- */
+
+.offer-card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  padding: 10px 13px;
+  min-width: 200px;
+}
+
+.msg-sent .offer-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.06));
+}
+
+.offer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.offer-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
+.offer-price {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-unit {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.offer-terms {
+  font-size: 11.5px;
+  line-height: 1.5;
+  opacity: 0.8;
+  font-family: var(--mono);
+}
+/* ---- Tool chips (interactive action pills in a bubble) -------------- */
+
+.toolchip {
+  font-size: 13px;
+}
+
+.toolchip-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: inherit;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  width: 100%;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.toolchip-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  flex: none;
+}
+
+.toolchip-err .status-dot {
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
+
+.toolchip-text {
+  flex: 1;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.toolchip-caret {
+  opacity: 0.7;
+  flex: none;
+}
+
+.toolchip-json {
+  margin: 8px 0 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-x: auto;
+  max-height: 220px;
+  white-space: pre;
+}
+
+/* ---- Action lines (iMessage system/activity text) -------------------- */
+
+.action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 14px 24px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.action-ts {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.action-ok {
+  color: var(--green);
+}
+
+.action-final {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.action-end {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.action-err {
+  color: var(--red);
+}
+
+/* ---- Composer bar (faux iMessage input/send) ------------------------ */
+
+.composer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--thread-bg);
+}
+
+.composer-input {
+  flex: 1;
+  text-align: left;
+  background: var(--recv-bubble);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.composer-input:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.composer-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--buyer);
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s, transform 0.05s;
+}
+
+.composer-send:hover:not(:disabled) {
+  background: var(--buyer-bright);
+}
+
+.composer-send:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+/* ---- Thin scrollbars ------------------------------------------------ */
+
+.thread::-webkit-scrollbar,
+.feed::-webkit-scrollbar,
+.toolchip-json::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.thread::-webkit-scrollbar-thumb,
+.feed::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.thread::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* ---- Raw event log (EventFeed) -------------------------------------- */
+
+.feed {
+  padding: 12px 14px 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.empty {
-  margin: auto;
-  max-width: 420px;
-  text-align: center;
-  color: var(--muted);
-}
-
 .ev {
   border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
   overflow: hidden;
-  min-width: 0;              /* flex child must not exceed container */
-  flex-shrink: 0;
+}
+
+.ev-tool_call_error,
+.ev-error {
+  border-color: rgba(255, 69, 58, 0.4);
+}
+
+.ev-session_end,
+.ev-finalize {
+  border-color: rgba(48, 209, 88, 0.35);
 }
 
 .ev-head {
@@ -212,400 +846,204 @@ button:disabled {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: var(--panel-2);
+  font-size: 11.5px;
   border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .ev-seq {
   font-family: var(--mono);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .ev-type {
   font-weight: 600;
-  font-size: 13px;
-}
-
-.ev-ts {
-  margin-left: auto;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 12px;
+  color: var(--text);
+  flex: 1;
 }
 
 .side {
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  letter-spacing: 0.04em;
 }
 
 .side-buyer {
-  color: var(--accent);
-  border-color: var(--accent);
+  background: rgba(11, 132, 254, 0.2);
+  color: var(--buyer-bright);
 }
 
 .side-seller {
-  color: var(--amber);
-  border-color: var(--amber);
+  background: rgba(224, 161, 59, 0.2);
+  color: var(--seller);
 }
 
-.ev-payload,
-.tool-json {
-  margin: 0;
-  padding: 12px;
+.ev-ts {
   font-family: var(--mono);
-  font-size: 12px;
-  background: #0a0e14;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  min-width: 0;
-  max-width: 100%;
+  font-size: 10px;
+  color: var(--muted);
 }
 
+.ev-payload {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Tool row used by EventFeed. */
 .tool {
-  min-width: 0;
+  padding: 8px 12px;
 }
 
 .tool-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  color: var(--text);
-  text-align: left;
-  padding: 10px 12px;
-}
-
-.tool-toggle:hover {
-  background: var(--panel-2);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex: none;
-}
-
-.ev-tool_call_error .status-dot {
-  background: var(--red);
-}
-
-.ev-tool_call_result .status-dot {
-  background: var(--green);
-}
-
-.tool-name {
-  font-family: var(--mono);
-  color: var(--accent);
-  font-size: 13px;
-}
-
-.tool-args {
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tool-caret {
-  margin-left: auto;
-  color: var(--muted);
-}
-
-/* ---- Negotiation transcript (chat) -------------------------------- */
-
-.meta {
-  align-self: center;
-  max-width: 92%;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-  text-align: center;
-  word-break: break-word;
-  min-width: 0;
-}
-
-.meta-title {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.meta-line {
-  margin-top: 2px;
-}
-
-.meta-ok {
-  color: var(--green);
-  border-color: var(--green);
-}
-
-.meta-final {
-  border-color: var(--green);
-  color: var(--text);
-}
-
-.meta-error {
-  border-color: var(--red);
-  color: var(--red);
-}
-
-.turn {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-}
-
-.turn-buyer {
-  justify-content: flex-start;
-}
-
-.turn-seller {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: 78%;
-  min-width: 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.turn-buyer .bubble {
-  border-left: 3px solid var(--accent);
-}
-
-.turn-seller .bubble {
-  border-right: 3px solid var(--amber);
-}
-
-.bubble-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.turn-buyer .bubble-label {
-  color: var(--accent);
-}
-
-.turn-seller .bubble-label {
-  color: var(--amber);
-}
-
-.bubble-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  font-size: 13.5px;
-  line-height: 1.5;
-  min-width: 0;
-}
-
-.bubble-offer {
-  background: var(--panel-2);
-}
-
-.offer-terms {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--text);
-  word-break: break-word;
-  white-space: pre-wrap;
-}
-
-/* Inline tool-call chip (collapsible raw JSON). */
-.toolchip {
-  max-width: 78%;
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel);
-  overflow: hidden;
-}
-
-.toolchip-btn {
-  width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
   background: transparent;
   border: none;
-  border-radius: 0;
-  color: var(--muted);
-  text-align: left;
-  padding: 7px 12px;
-  font-weight: 500;
-}
-
-.toolchip-btn:hover {
-  background: var(--panel-2);
   color: var(--text);
+  width: 100%;
+  cursor: pointer;
+  font-size: 12.5px;
 }
 
-.toolchip-text {
+.tool-name {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
+.tool-args {
   flex: 1;
-  min-width: 0;
+  text-align: left;
+  color: var(--muted);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.toolchip-caret {
-  flex: none;
+.tool-caret {
   color: var(--muted);
 }
 
-.toolchip-json {
-  margin: 0;
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
+.tool-json {
+  margin: 8px 0 0;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
   font-family: var(--mono);
-  font-size: 12px;
-  background: #0a0e14;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.toolchip-err {
-  border-color: var(--red);
-}
-
-.toolchip-err .toolchip-btn {
-  color: var(--red);
-}
-
-/* Mode toggle in the top bar. */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  font-size: 11px;
+  line-height: 1.5;
   color: var(--muted);
-  cursor: pointer;
-  white-space: nowrap;
+  overflow-x: auto;
+  white-space: pre;
 }
 
-.checkbox-label input {
-  accent-color: var(--accent);
-  width: 14px;
-  height: 14px;
-}
-
-.pill-accent {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-/* ---- Dismissible metrics modal -------------------------------------- */
+/* ---- Metrics modal (auto-shown on session_end) ----------------------- */
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(13, 17, 23, 0.72);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   z-index: 50;
-  padding: 20px;
 }
 
 .modal {
-  width: min(1060px, 100%);
+  width: min(100%, 720px);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--thread-bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  border-radius: 22px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
 .modal-head {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel-2);
+  background: linear-gradient(180deg, rgba(11, 132, 254, 0.12), transparent);
 }
 
 .modal-title {
+  font-size: 17px;
   font-weight: 700;
-  font-size: 16px;
+  letter-spacing: -0.01em;
 }
 
 .modal-close {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 22px;
-  line-height: 1;
-  padding: 2px 8px;
-}
-
-.modal-close:hover {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .modal-body {
   overflow-y: auto;
-  padding: 16px 18px;
+  padding: 20px;
 }
 
 .modal-foot {
   flex-shrink: 0;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
-  padding: 12px 18px;
-  border-top: 1px solid var(--border);
-  background: var(--panel-2);
 }
 
-/* ---- Metrics dashboard --------------------------------------------- */
+.modal-foot button {
+  background: var(--buyer);
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+/* ---- Metrics dashboard interior -------------------------------------- */
 
 .metrics {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .outcome-banner {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px 16px;
-  border-radius: 10px;
+  padding: 14px 18px;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  background: var(--panel-2);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .outcome-title {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .outcome-sub {
@@ -614,7 +1052,7 @@ button:disabled {
 }
 
 .banner-ok {
-  border-color: var(--green);
+  border-color: rgba(48, 209, 88, 0.4);
 }
 
 .banner-ok .outcome-title {
@@ -622,7 +1060,7 @@ button:disabled {
 }
 
 .banner-warn {
-  border-color: var(--amber);
+  border-color: rgba(255, 214, 10, 0.4);
 }
 
 .banner-warn .outcome-title {
@@ -630,7 +1068,7 @@ button:disabled {
 }
 
 .banner-bad {
-  border-color: var(--red);
+  border-color: rgba(255, 69, 58, 0.4);
 }
 
 .banner-bad .outcome-title {
@@ -639,29 +1077,30 @@ button:disabled {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
 .kpi {
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel-2);
-  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 14px;
 }
 
 .kpi-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .kpi-value {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 21px;
+  font-weight: 800;
   margin-top: 4px;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .kpi-sub {
@@ -675,16 +1114,16 @@ button:disabled {
 }
 
 .metrics-panel {
-  background: var(--panel);
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 14px;
 }
 
 .metrics-panel-title {
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .chart-wrap {
@@ -699,15 +1138,15 @@ button:disabled {
 
 .side-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
 .side-panel {
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel-2);
-  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 14px;
   border-top-width: 3px;
 }
 
@@ -737,7 +1176,7 @@ button:disabled {
 .side-row-sub {
   color: var(--muted);
   font-weight: 400;
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .side-tools {
@@ -748,9 +1187,9 @@ button:disabled {
 
 .side-tools-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   margin-bottom: 4px;
 }
 
@@ -765,6 +1204,8 @@ button:disabled {
 .side-tool-name {
   font-family: var(--mono);
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .side-tool-count {

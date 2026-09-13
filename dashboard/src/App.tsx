@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import EventFeed from "./components/EventFeed";
 import Metrics from "./components/Metrics";
 import Transcript from "./components/Transcript";
+import ContactCard from "./components/ContactCard";
 import {
   LiveFeed,
   createSession,
@@ -63,7 +64,7 @@ export default function App() {
   // Keep the active pane pinned to the newest event as it streams in.
   useEffect(() => {
     const el = document.querySelector<HTMLElement>(
-      view === "transcript" ? ".transcript" : ".feed",
+      view === "transcript" ? ".thread" : ".feed",
     );
     if (el) el.scrollTop = el.scrollHeight;
   }, [events, view]);
@@ -83,84 +84,135 @@ export default function App() {
   const model = (startEvent?.payload?.run_model as string) || null;
   const offers = events.filter((e) => e.type === "offer").length;
   const toolCalls = events.filter((e) => e.type === "tool_call_start").length;
+  const currentRound =
+    events
+      .filter((e) => e.type === "offer")
+      .reduce<number>((max, e) => {
+        const r = (e.payload.round as number | undefined) ?? 0;
+        return Number.isFinite(r) && r > max ? r : max;
+      }, 0) +
+    (offers > 0 ? 1 : 0);
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-dot" />
-          BATNA <span className="brand-ph">· live negotiation</span>
-        </div>
-        <div className="controls">
-          <label>
-            Scenario
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as (typeof KINDS)[number])}
-              disabled={conn === "open"}
+      <div className="chrome">
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-dot" />
+            BATNA <span className="brand-ph">· live negotiation</span>
+          </div>
+          <div className="controls">
+            <label>
+              Scenario
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as (typeof KINDS)[number])}
+                disabled={conn === "open"}
+              >
+                {KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label
+              className="checkbox-label"
+              title="Ignore the round budget and keep negotiating until agreement (or hard cap)"
             >
-              {KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="checkbox-label" title="Ignore the round budget and keep negotiating until agreement (or hard cap)">
-            <input
-              type="checkbox"
-              checked={untilAgreement}
-              onChange={(e) => setUntilAgreement(e.target.checked)}
-              disabled={conn === "open"}
-            />
-            Until agreement
-          </label>
-          <button onClick={start} disabled={conn === "open"}>
-            Start negotiation
-          </button>
+              <input
+                type="checkbox"
+                checked={untilAgreement}
+                onChange={(e) => setUntilAgreement(e.target.checked)}
+                disabled={conn === "open"}
+              />
+              Until agreement
+            </label>
+            <button onClick={start} disabled={conn === "open"}>
+              Start negotiation
+            </button>
+          </div>
+        </header>
+
+        <div className="statusbar">
+          <span className={`pill pill-${conn}`}>ws: {conn}</span>
+          {sessionId && <span className="pill">session: {sessionId.slice(0, 8)}</span>}
+          {untilAgreement && (
+            <span className="pill pill-accent">mode: until agreement</span>
+          )}
+          {mode && (
+            <span className={`pill ${mode === "live" ? "pill-open" : "pill-muted"}`}>
+              mode: {mode}
+            </span>
+          )}
+          {model && <span className="pill">model: {model}</span>}
+          {events.length > 0 && <span className="pill">events: {events.length}</span>}
+          {offers > 0 && <span className="pill">offers: {offers}</span>}
+          {toolCalls > 0 && <span className="pill">tool calls: {toolCalls}</span>}
+          {error && <span className="pill pill-error">error: {error}</span>}
         </div>
-      </header>
-
-      <div className="statusbar">
-        <span className={`pill pill-${conn}`}>ws: {conn}</span>
-        {sessionId && <span className="pill">session: {sessionId.slice(0, 8)}</span>}
-        {untilAgreement && (
-          <span className="pill pill-accent">mode: until agreement</span>
-        )}
-        {mode && (
-          <span className={`pill ${mode === "live" ? "pill-open" : "pill-muted"}`}>
-            mode: {mode}
-          </span>
-        )}
-        {model && <span className="pill">model: {model}</span>}
-        {events.length > 0 && <span className="pill">events: {events.length}</span>}
-        {offers > 0 && <span className="pill">offers: {offers}</span>}
-        {toolCalls > 0 && <span className="pill">tool calls: {toolCalls}</span>}
-        {error && <span className="pill pill-error">error: {error}</span>}
       </div>
 
-      <nav className="view-toggle" aria-label="Dashboard view">
-        <button
-          className={view === "transcript" ? "active" : ""}
-          onClick={() => setView("transcript")}
-        >
-          Negotiation
-        </button>
-        <button
-          className={view === "log" ? "active" : ""}
-          onClick={() => setView("log")}
-        >
-          Raw event log
-        </button>
-      </nav>
+      <main className="stage">
+        <div className="phone" aria-label="Negotiation chat">
+          <ContactCard
+            kind={kind}
+            untilAgreement={untilAgreement}
+            conn={conn}
+            sessionId={sessionId}
+            mode={mode}
+            model={model}
+            hasMessages={events.length > 0}
+            round={currentRound}
+          />
 
-      <div className="view-body">
-        {view === "transcript" ? (
-          <Transcript events={events} mode={mode} model={model} untilAgreement={untilAgreement} />
-        ) : (
-          <EventFeed events={events} />
-        )}
-      </div>
+          <nav className="view-toggle" aria-label="Dashboard view">
+            <button
+              className={view === "transcript" ? "active" : ""}
+              onClick={() => setView("transcript")}
+            >
+              Negotiation
+            </button>
+            <button
+              className={view === "log" ? "active" : ""}
+              onClick={() => setView("log")}
+            >
+              Raw event log
+            </button>
+          </nav>
+
+          <div className="view-body">
+            {view === "transcript" ? (
+              <Transcript
+                events={events}
+                mode={mode}
+                model={model}
+                untilAgreement={untilAgreement}
+              />
+            ) : (
+              <EventFeed events={events} />
+            )}
+          </div>
+
+          <div className="composer">
+            <button className="composer-input" onClick={start} disabled={conn === "open"}>
+              {conn === "open"
+                ? "Negotiation in progress…"
+                : events.length > 0
+                  ? "Start a new negotiation…"
+                  : "Start negotiation…"}
+            </button>
+            <button
+              className="composer-send"
+              onClick={start}
+              disabled={conn === "open"}
+              aria-label="Start negotiation"
+            >
+              ▲
+            </button>
+          </div>
+        </div>
+      </main>
 
       {summary && <MetricsModal summary={summary} onClose={() => setSummary(null)} />}
     </div>

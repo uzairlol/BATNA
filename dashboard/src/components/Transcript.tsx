@@ -9,9 +9,9 @@ interface TranscriptProps {
 }
 
 const TOOL_LABEL: Record<string, string> = {
-  get_market_benchmark: "consulted live market data",
-  search_precedents: "searched precedent awards",
-  check_contract_risk: "ran a contract-risk check",
+  get_market_benchmark: "Live market data",
+  search_precedents: "Precedent awards",
+  check_contract_risk: "Contract risk",
 };
 
 function sideLabel(side?: string | null): string {
@@ -27,14 +27,13 @@ function formatPrice(v: unknown): string {
 
 function offerLine(p: Record<string, unknown>): string {
   const parts = [
-    `${formatPrice(p.price)}/yr`,
     `net ${p.payment_terms_days ?? "?"}d`,
     `SLA ${p.delivery_sla_days ?? "?"}d`,
     `liab cap ${p.liability_cap_pct ?? "?"}%`,
     `${p.contract_duration_months ?? "?"}mo`,
     `${p.termination_notice_days ?? "?"}d notice`,
   ];
-  return parts.join(" · ");
+  return parts.join("  ·  ");
 }
 
 function toolPrev(p: Record<string, unknown>): string {
@@ -43,12 +42,121 @@ function toolPrev(p: Record<string, unknown>): string {
   return typeof industry === "string" ? `(${industry})` : "";
 }
 
+function toolTitle(name: string): string {
+  return TOOL_LABEL[name] ?? name;
+}
+
 function outcomeSentence(outcome: unknown): string {
   const o = String(outcome ?? "?");
-  if (o === "agreement") return "Agreement reached — the deal is done.";
+  if (o === "agreement") return "Agreement reached — the deal is done. 🎉";
   if (o === "no_zopa") return "No overlap in mandates — deadlock, correctly detected.";
   if (o === "round_exhaustion") return "Rounds exhausted without agreement.";
   return o;
+}
+
+function fmtTime(ts: string): string {
+  try {
+    return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+interface Row {
+  kind: "action" | "msg";
+  side?: "buyer" | "seller";
+  sub?: "text" | "offer" | "tool";
+  text?: string;
+  event?: StreamEvent;
+  p?: Record<string, unknown>;
+  cls?: string;
+  ts?: string;
+  grouped?: boolean;
+}
+
+/** Flatten stream events into lightweight chat rows; group consecutive same-side messages. */
+function buildRows(
+  events: StreamEvent[],
+  mode: string | null,
+  model: string | null,
+  untilAgreement: boolean,
+): Row[] {
+  const rows: Row[] = [];
+  for (const ev of events) {
+    const p = ev.payload ?? {};
+    const side = ev.side === "seller" ? "seller" : "buyer";
+    switch (ev.type) {
+      case "session_start":
+        rows.push({
+          kind: "action",
+          text: `Negotiation started · ${mode ?? "…"}${
+            model ? ` · ${model}` : ""
+          } · stop: ${untilAgreement ? "until agreement" : `round ${String(p.max_rounds ?? "?")}`}`,
+          ts: ev.ts,
+        });
+        break;
+      case "discovery": {
+        const buyerN = Array.isArray(p.buyer_tools) ? p.buyer_tools.length : 0;
+        const sellerN = Array.isArray(p.seller_tools) ? p.seller_tools.length : 0;
+        rows.push({
+          kind: "action",
+          text: `Agents discovered live tools — buyer ${buyerN}, seller ${sellerN}`,
+          ts: ev.ts,
+        });
+        break;
+      }
+      case "reasoning":
+        rows.push({ kind: "msg", side, sub: "text", text: String(p.text ?? ""), ts: ev.ts });
+        break;
+      case "offer":
+        rows.push({ kind: "msg", side, sub: "offer", p, ts: ev.ts });
+        break;
+      case "tool_call_start":
+      case "tool_call_result":
+      case "tool_call_error":
+        rows.push({ kind: "msg", side, sub: "tool", event: ev, p, ts: ev.ts });
+        break;
+      case "acceptance_check": {
+        const acceptable = Boolean(p.acceptable);
+        const failures = Array.isArray(p.failures) ? (p.failures as string[]) : [];
+        rows.push({
+          kind: "action",
+          cls: acceptable ? "ok" : "",
+          text: `${sideLabel(ev.side)} — accept${
+            acceptable ? "ed" : "ed? not yet"
+          }${failures.length > 0 ? ` · ${failures.join(", ")}` : ""}`,
+          ts: ev.ts,
+        });
+        break;
+      }
+      case "finalize":
+        rows.push({ kind: "action", cls: "final", text: outcomeSentence(p.outcome), ts: ev.ts });
+        break;
+      case "session_end":
+        rows.push({
+          kind: "action",
+          cls: "end",
+          text: `Session ended — ${outcomeSentence(p.outcome)}`,
+          ts: ev.ts,
+        });
+        break;
+      case "error":
+        rows.push({
+          kind: "action",
+          cls: "err",
+          text: `error: ${String(p.message ?? "")}`,
+          ts: ev.ts,
+        });
+        break;
+      default:
+        rows.push({ kind: "action", text: ev.type, ts: ev.ts });
+    }
+  }
+  return rows.map((r, i) => {
+    const prev = rows[i - 1];
+    const grouped = r.kind === "msg" && prev?.kind === "msg" && prev.side === r.side;
+    return { ...r, grouped };
+  });
 }
 
 export default function Transcript({
@@ -59,164 +167,100 @@ export default function Transcript({
 }: TranscriptProps) {
   if (events.length === 0) {
     return (
-      <div className="transcript">
+      <div className="thread">
         <div className="empty">
-          <p>No negotiation yet.</p>
-          <p>Press “Start negotiation” to watch the buyer and seller talk it out live.</p>
+          <div className="empty-emoji">💬</div>
+          <p>No conversation yet.</p>
+          <p>Press “Start negotiation” and the two agents will start chatting.</p>
         </div>
       </div>
     );
   }
 
+  const rows = buildRows(events, mode, model, untilAgreement);
   return (
-    <div className="transcript">
-      {events.map((ev) => (
-        <Row
-          key={`${ev.session_id}-${ev.seq}`}
-          ev={ev}
-          mode={mode}
-          model={model}
-          untilAgreement={untilAgreement}
-        />
-      ))}
+    <div className="thread">
+      <div className="thread-date">Today</div>
+      {rows.map((r, i) =>
+        r.kind === "action" ? (
+          <ActionLine key={i} row={r} />
+        ) : (
+          <MessageRow key={i} row={r} prevIsSame={rows[i - 1]?.side === r.side} />
+        ),
+      )}
+    </div>
+  );
+}
+function ActionLine({ row }: { row: Row }) {
+  return (
+    <div className={`action action-${row.cls ?? "plain"}`}>
+      {row.text}
+      {row.ts && <span className="action-ts">{fmtTime(row.ts)}</span>}
     </div>
   );
 }
 
-function Row({
-  ev,
-  mode,
-  model,
-  untilAgreement,
-}: {
-  ev: StreamEvent;
-  mode: string | null;
-  model: string | null;
-  untilAgreement: boolean;
-}) {
-  const p = ev.payload ?? {};
-  switch (ev.type) {
-    case "session_start":
-      return (
-        <div className="meta meta-head">
-          <div className="meta-title">Negotiation session</div>
-          <div className="meta-line">
-            mode: <b>{mode ?? "…"}</b>
-            {model ? ` · model: ${model}` : ""} · stop:{" "}
-            <b>{untilAgreement ? "until agreement" : `round ${String(p.max_rounds ?? "?")}`}</b>
-          </div>
-        </div>
-      );
-
-    case "discovery": {
-      const buyerN = Array.isArray(p.buyer_tools) ? p.buyer_tools.length : 0;
-      const sellerN = Array.isArray(p.seller_tools) ? p.seller_tools.length : 0;
-      return (
-        <div className="meta">
-          Agents discovered live tools — buyer {buyerN}, seller {sellerN}
-        </div>
-      );
-    }
-
-    case "reasoning":
-      return (
-        <div className={`turn turn-${ev.side === "seller" ? "seller" : "buyer"}`}>
-          <div className="bubble">
-            <div className="bubble-label">{sideLabel(ev.side)}</div>
-            <div className="bubble-text">{String(p.text ?? "")}</div>
-          </div>
-        </div>
-      );
-
-    case "offer":
-      return (
-        <div className={`turn turn-${ev.side === "seller" ? "seller" : "buyer"}`}>
-          <div className="bubble bubble-offer">
-            <div className="bubble-label">{sideLabel(ev.side)} proposes</div>
-            <div className="offer-terms">{offerLine(p)}</div>
-          </div>
-        </div>
-      );
-
-    case "tool_call_start":
-    case "tool_call_result":
-    case "tool_call_error":
-      return (
-        <div className={`turn turn-${ev.side === "seller" ? "seller" : "buyer"}`}>
-          <ToolChip ev={ev} />
-        </div>
-      );
-
-    case "acceptance_check": {
-      const acceptable = Boolean(p.acceptable);
-      const failures = Array.isArray(p.failures) ? (p.failures as string[]) : [];
-      return (
-        <div className={`meta ${acceptable ? "meta-ok" : ""}`}>
-          {sideLabel(ev.side)} acceptance check —{" "}
-          {acceptable ? "accepted" : "not yet"}
-          {failures.length > 0 ? `: ${failures.join(", ")}` : ""}
-        </div>
-      );
-    }
-
-    case "finalize": {
-      const accepted = p.accepted_offer as
-        | Record<string, unknown>
-        | null
-        | undefined;
-      return (
-        <div className="meta meta-final">
-          <div className="meta-title">{outcomeSentence(p.outcome)}</div>
-          <div className="meta-line">
-            rounds: {String(p.rounds_elapsed ?? "?")}
-            {accepted ? ` · agreed at ${formatPrice(accepted.price)}` : ""}
-          </div>
-        </div>
-      );
-    }
-
-    case "session_end":
-      return (
-        <div className="meta">
-          Session ended{p.outcome ? ` — ${outcomeSentence(p.outcome)}` : ""}
-        </div>
-      );
-
-    case "error":
-      return <div className="meta meta-error">error: {String(p.message ?? "")}</div>;
-
-    default:
-      return <div className="meta">{ev.type}</div>;
-  }
+function MessageRow({ row, prevIsSame }: { row: Row; prevIsSame: boolean }) {
+  const sent = row.side === "buyer";
+  const grouped = Boolean(prevIsSame);
+  return (
+    <div className={`msg ${sent ? "msg-sent" : "msg-recv"} ${grouped ? "grouped" : "first"}`}>
+      {!sent && (
+        <span className={`avatar avatar-${row.side === "seller" ? "seller" : "buyer"}`}>
+          {row.side === "seller" ? "S" : "B"}
+        </span>
+      )}
+      <div className="bubble">
+        {!grouped && <span className="bubble-time">{fmtTime(row.ts ?? "")}</span>}
+        {row.sub === "offer" ? <OfferCard p={row.p ?? {}} side={row.side} /> : null}
+        {row.sub === "text" ? <span className="bubble-text">{row.text}</span> : null}
+        {row.sub === "tool" && row.event ? <ToolChip ev={row.event} side={row.side} /> : null}
+        {sent && !grouped && (
+          <span className="read-tick" title="Negotiator delivered">
+            ✓✓
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function ToolChip({ ev }: { ev: StreamEvent }) {
+function OfferCard({ p, side }: { p: Record<string, unknown>; side?: string }) {
+  return (
+    <div className="offer-card">
+      <div className="offer-head">
+        <span className="offer-tag">{sideLabel(side)} proposes</span>
+        <span className="offer-price">
+          {formatPrice(p.price)}
+          <span className="offer-unit">/yr</span>
+        </span>
+      </div>
+      <div className="offer-terms">{offerLine(p)}</div>
+    </div>
+  );
+}
+
+function ToolChip({ ev, side }: { ev: StreamEvent; side?: string }) {
   const [open, setOpen] = useState(false);
   const p = ev.payload ?? {};
   const name = String(p.name ?? "?");
   const verb =
     ev.type === "tool_call_start"
-      ? (TOOL_LABEL[name] ?? `called ${name}`)
+      ? `using ${toolTitle(name)}`
       : ev.type === "tool_call_error"
-        ? `called ${name} — errored`
-        : `got ${name} result`;
+        ? `${toolTitle(name)} errored`
+        : `${toolTitle(name)} ready`;
 
   return (
     <div className={`toolchip ${ev.type === "tool_call_error" ? "toolchip-err" : ""}`}>
-      <button
-        className="toolchip-btn"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+      <button className="toolchip-btn" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span className="status-dot" aria-hidden />
         <span className="toolchip-text">
-          {sideLabel(ev.side)} {verb} {toolPrev(p)}
+          {sideLabel(side)} {verb} {toolPrev(p)}
         </span>
         <span className="toolchip-caret">{open ? "▾" : "▸"}</span>
       </button>
-      {open && (
-        <pre className="toolchip-json">{JSON.stringify(ev.payload, null, 2)}</pre>
-      )}
+      {open && <pre className="toolchip-json">{JSON.stringify(ev.payload, null, 2)}</pre>}
     </div>
   );
 }
