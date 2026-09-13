@@ -299,20 +299,14 @@ class ScriptedNegotiatorLLM:
                 )
         else:
             if target <= counterpart_price * 1.01:
-                closing = (
-                    f"that is close enough — we can meet you at {kb} today."
-                )
+                closing = f"that is close enough — we can meet you at {kb} today."
             else:
                 closing = (
                     f"that leaves us too little margin. We've come down to {kb} "
                     f"and we will hold there until you commit to a longer term."
                 )
-        risk = (
-            " Our risk check flagged the prior terms, so we've adjusted." if risk_ref else ""
-        )
-        return (
-            f"For your {theirs}, {closing}{risk}"
-        )
+        risk = " Our risk check flagged the prior terms, so we've adjusted." if risk_ref else ""
+        return f"For your {theirs}, {closing}{risk}"
 
     def _opening_anchor(self, derived_price: float) -> float:
         """Anchor the opening bid away from the market midpoint, per role.

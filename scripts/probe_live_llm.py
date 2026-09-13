@@ -1,4 +1,5 @@
 """Smoke: prove a REAL Ollama model negotiates through the agent loop (live mode)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -57,7 +58,7 @@ async def main() -> None:
     print("\n---- streamed reasoning (REAL model text) ----")
     for ev in durable.emitted:
         if ev.type is EventType.REASONING:
-            print(f"[{ev.side}] {ev.payload.get('text','')[:400]}")
+            print(f"[{ev.side}] {ev.payload.get('text', '')[:400]}")
     print("\n---- offers ----")
     for ev in durable.emitted:
         if ev.type is EventType.OFFER:
