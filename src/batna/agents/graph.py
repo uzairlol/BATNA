@@ -46,6 +46,7 @@ def _count_tools(call_log: ToolCallLog) -> dict[str, int]:
         counts[entry.name] = counts.get(entry.name, 0) + 1
     return counts
 
+
 logger = logging.getLogger(__name__)
 
 __all__ = ["NegotiationState", "build_negotiation_graph", "run_negotiation"]
@@ -367,9 +368,7 @@ async def run_negotiation(
     from batna.config import settings
 
     soft = max_rounds if max_rounds is not None else settings.agent_max_rounds
-    effective = (
-        settings.agent_max_rounds_until_agreement if until_agreement else soft
-    )
+    effective = settings.agent_max_rounds_until_agreement if until_agreement else soft
     active_sink: StreamSink = sink if sink is not None else NullStreamSink()
     app = build_negotiation_graph(
         buyer, seller, buyer_principal, seller_principal, sink=active_sink

@@ -116,9 +116,7 @@ def build_session_summary(
     """
     raw_outcome = result.get("outcome")
     outcome = (
-        raw_outcome.value
-        if isinstance(raw_outcome, NegotiationOutcome)
-        else str(raw_outcome or "")
+        raw_outcome.value if isinstance(raw_outcome, NegotiationOutcome) else str(raw_outcome or "")
     )
     reached_agreement = outcome == NegotiationOutcome.AGREEMENT.value
 
