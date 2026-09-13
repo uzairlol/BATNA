@@ -59,5 +59,13 @@ class Settings(BaseSettings):
     agent_max_offer_retries: int = 3
     seller_model: str = "qwen2.5:7b"
 
+    # Phase 7 real-time streaming. Redis pub/sub channels are per-session under a
+    # shared prefix; the bounded list is the replay buffer a late-joining WebSocket
+    # client reads on connect so it sees the whole session, not just what streams
+    # after it attaches.
+    redis_pubsub_channel_prefix: str = "session"
+    stream_event_buffer_max: int = 500
+    stream_replay_limit: int = 100
+
 
 settings = Settings()

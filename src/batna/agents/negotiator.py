@@ -30,6 +30,8 @@ from batna.agents.tool_call_log import ToolCallLog
 from batna.agents.tool_provider import ToolProvider
 from batna.config import settings
 from batna.engine.contract import ContractTerms
+from batna.stream.events import EventType, build_event
+from batna.stream.sink import NullStreamSink, StreamSink
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,9 @@ class NegotiatorAgent(ABC):
         provider: ToolProvider,
         max_tool_calls: int | None = None,
         max_offer_retries: int | None = None,
+        *,
+        sink: StreamSink | None = None,
+        role: str | None = None,
     ) -> None:
         self._llm = llm
         self._provider = provider
@@ -69,6 +74,8 @@ class NegotiatorAgent(ABC):
         self._max_offer_retries = (
             max_offer_retries if max_offer_retries is not None else settings.agent_max_offer_retries
         )
+        self._sink = sink if sink is not None else NullStreamSink()
+        self._role = role
         self._tool_calls_made = 0
         # Session-persistent grounding: the tool-result messages fetched so far.
         # Once the agent has grounded itself, counter-offers reuse that grounding
@@ -154,7 +161,7 @@ class NegotiatorAgent(ABC):
 
             if action.final_text is not None and action.final_text.strip():
                 try:
-                    return parse_offer(action.final_text)
+                    parsed = parse_offer(action.final_text)
                 except OfferParseError:
                     if retries_left <= 0:
                         raise NegotiationError(
@@ -175,6 +182,14 @@ class NegotiatorAgent(ABC):
                         }
                     )
                     continue
+                await self._sink.emit(
+                    build_event(
+                        EventType.REASONING,
+                        {"text": action.final_text},
+                        side=self._role,
+                    )
+                )
+                return parsed
 
             if retries_left <= 0:
                 raise NegotiationError(

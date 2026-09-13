@@ -110,6 +110,48 @@ Phase 5 Definition of Done: across 20+ runs the agent calls at least one real MC
 
 ---
 
+## Real-Time Streaming (Phase 7)
+
+Every negotiation event — including the **raw request arguments and response
+text of every real MCP tool call** — is pushed live to a web dashboard over a
+native WebSocket with **no polling**.
+
+- **`stream/`** defines the wire contract and transports. `StreamEvent`
+  (Pydantic) is the source of truth JSON model; `EventType` enumerates what can
+  appear. The `StreamSink` protocol is the plug point: `NullStreamSink`/`InMemoryStreamSink`
+  for tests, and `RedisStreamSink` for production.
+- **Redis pub/sub + replay**: `RedisStreamSink` publishes each event to a
+  per-session channel *and* appends it to a bounded list, so a browser that
+  connects mid-run replays the buffered session first, then streams live.
+- **FastAPI (`api/main.py`)**: `POST /api/sessions`, `POST /api/sessions/{id}/negotiate`
+  (runs the negotiation in a background task), and `WS /api/ws/{session_id}`
+  (replay-on-connect + live forwarding).
+- **Dashboard (`dashboard/`)**: a React + Vite app whose native WebSocket client
+  renders the feed — each tool call is an expandable raw-JSON row showing the
+  exact arguments and the response the tool really returned.
+
+Streaming is backward-compatible: `ToolProvider`, `NegotiatorAgent`, and
+`run_negotiation` all accept an optional `sink` (default `None`), so existing
+phases and tests are unaffected without one.
+
+### Live demo (one command each)
+
+```bash
+# 1. Start dependencies (PostgreSQL + Redis)
+docker-compose up -d
+
+# 2. Start the streaming API (serves the built dashboard too)
+uvicorn batna.api.main:app --host 0.0.0.0 --port 8000
+
+# 3. (optional) run the dashboard in dev mode with a Vite proxy
+cd dashboard && npm install && npm run dev
+```
+
+Open `http://localhost:8000`, pick a scenario, hit **Start negotiation**, and
+watch the raw tool-call payloads stream in.
+
+---
+
 ## Repository Structure
 
 ```
@@ -126,7 +168,9 @@ batna/
 │       ├── mcp_servers/     # Market data server, precedent server, registry client
 │       ├── memory/          # Structured memory curation and poisoning detection
 │       ├── observability/   # OpenTelemetry tracing and cost tracking
+│       ├── stream/          # Event model, sinks, Redis pub/sub publisher (Phase 7)
 │       └── tools/           # Deterministic in-process tools (risk, surplus)
+├── dashboard/               # React + Vite live-streaming UI (Phase 7)
 ├── tests/
 │   ├── integration/         # Live API integration tests
 │   └── unit/                # Unit test suites (engine, data, config, MCP servers)

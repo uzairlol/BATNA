@@ -21,8 +21,9 @@ persist/resume cleanly.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -32,6 +33,8 @@ from batna.agents.negotiation_state import NegotiationState
 from batna.agents.seller_agent import SellerAgent
 from batna.engine.acceptance import NegotiationOutcome, classify_outcome, is_acceptable
 from batna.engine.principal import Principal
+from batna.stream.events import EventType, build_event
+from batna.stream.sink import NullStreamSink, StreamSink
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +50,14 @@ class _GraphContext:
         seller: SellerAgent,
         buyer_principal: Principal,
         seller_principal: Principal,
+        *,
+        sink: StreamSink | None = None,
     ) -> None:
         self.buyer = buyer
         self.seller = seller
         self.buyer_principal = buyer_principal
         self.seller_principal = seller_principal
+        self.sink = sink if sink is not None else NullStreamSink()
 
 
 def _zopa_exists(buyer: Principal, seller: Principal) -> bool:
@@ -70,6 +76,13 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
         outcome = None
         if not _zopa_exists(ctx.buyer_principal, ctx.seller_principal):
             outcome = NegotiationOutcome.NO_ZOPA
+        await ctx.sink.emit(
+            build_event(
+                EventType.DISCOVERY,
+                {"buyer_tools": buyer_tools, "seller_tools": seller_tools},
+                side="both",
+            )
+        )
         return {
             "outcome": outcome,
             "events": [
@@ -95,6 +108,7 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
             "terms": parsed.terms.model_dump(),
             "justification": parsed.raw_text,
         }
+        await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="buyer"))
         return {
             "buyer_offer": parsed.terms,
             "buyer_justification": parsed.raw_text,
@@ -116,6 +130,17 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
                 "round": rounds,
             }
         ]
+        await ctx.sink.emit(
+            build_event(
+                EventType.ACCEPTANCE_CHECK,
+                {
+                    "acceptable": decision.acceptable,
+                    "failures": list(decision.failures),
+                    "round": rounds,
+                },
+                side="seller",
+            )
+        )
         if decision.acceptable:
             return {
                 "accepted_offer": buyer_offer,
@@ -135,6 +160,7 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
             "terms": parsed.terms.model_dump(),
             "justification": parsed.raw_text,
         }
+        await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="seller"))
         return {
             "seller_offer": parsed.terms,
             "seller_justification": parsed.raw_text,
@@ -157,6 +183,17 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
                 "round": rounds,
             }
         ]
+        await ctx.sink.emit(
+            build_event(
+                EventType.ACCEPTANCE_CHECK,
+                {
+                    "acceptable": decision.acceptable,
+                    "failures": list(decision.failures),
+                    "round": rounds,
+                },
+                side="buyer",
+            )
+        )
         if decision.acceptable:
             return {
                 "accepted_offer": seller_offer,
@@ -182,6 +219,18 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
                 max_rounds=max_rounds,
             )
         accepted_offer = state.get("accepted_offer")
+        await ctx.sink.emit(
+            build_event(
+                EventType.FINALIZE,
+                {
+                    "outcome": outcome.value,
+                    "rounds_elapsed": rounds,
+                    "accepted_offer": (
+                        accepted_offer.model_dump() if accepted_offer is not None else None
+                    ),
+                },
+            )
+        )
         return {
             "outcome": outcome,
             "events": [
@@ -235,13 +284,16 @@ def build_negotiation_graph(
     seller: SellerAgent,
     buyer_principal: Principal,
     seller_principal: Principal,
+    *,
+    sink: StreamSink | None = None,
 ) -> CompiledStateGraph[NegotiationState]:
     """Build and compile the Phase 6 two-agent negotiation ``StateGraph``.
 
     Agents and principals are captured in the returned graph's closure, so the
-    graph state stays serializable (checkpointer-friendly).
+    graph state stays serializable (checkpointer-friendly). An optional ``sink``
+    streams discovery/offer/acceptance/finalize events as each node completes.
     """
-    ctx = _GraphContext(buyer, seller, buyer_principal, seller_principal)
+    ctx = _GraphContext(buyer, seller, buyer_principal, seller_principal, sink=sink)
     nodes = _make_nodes(ctx)
 
     graph = StateGraph(NegotiationState)
@@ -279,17 +331,26 @@ async def run_negotiation(
     scenario: dict[str, Any],
     *,
     max_rounds: int | None = None,
+    sink: StreamSink | None = None,
+    thread_id: str | None = None,
 ) -> dict[str, Any]:
     """Convenience runner: discover + run the graph to a terminal outcome.
 
     Returns the final ``NegotiationState`` (with ``outcome``,
     ``accepted_offer``, ``rounds_elapsed``, ``events``). The per-side
     ``ToolCallLog``s live on ``buyer.call_log`` / ``seller.call_log``.
+
+    ``thread_id`` keys the in-memory checkpointer; pass a session-unique value
+    when running concurrent negotiations so their checkpoints do not collide.
+    An optional ``sink`` emits ``session_start`` / ``session_end`` around the run.
     """
     from batna.config import settings
 
     rounds = max_rounds if max_rounds is not None else settings.agent_max_rounds
-    app = build_negotiation_graph(buyer, seller, buyer_principal, seller_principal)
+    active_sink: StreamSink = sink if sink is not None else NullStreamSink()
+    app = build_negotiation_graph(
+        buyer, seller, buyer_principal, seller_principal, sink=active_sink
+    )
     initial: NegotiationState = {
         "scenario": scenario,
         "buyer_principal": buyer_principal,
@@ -306,5 +367,19 @@ async def run_negotiation(
         "accepted_offer": None,
         "outcome": None,
     }
-    result = await app.ainvoke(initial, config={"configurable": {"thread_id": "phase6-run"}})
+    await active_sink.emit(build_event(EventType.SESSION_START, {"max_rounds": rounds}))
+    try:
+        config: RunnableConfig = {"configurable": {"thread_id": thread_id or "phase6-run"}}
+        result = cast(dict[str, Any], await app.ainvoke(initial, config=config))
+        await active_sink.emit(
+            build_event(
+                EventType.SESSION_END,
+                {"outcome": str(result.get("outcome")) if result.get("outcome") else None},
+            )
+        )
+    except Exception as exc:
+        await active_sink.emit(
+            build_event(EventType.ERROR, {"message": str(exc), "phase": "negotiation"})
+        )
+        raise
     return result

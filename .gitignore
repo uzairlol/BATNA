@@ -69,3 +69,9 @@ logs/
 
 #Ignore claude files in root directory
 .clauderc
+
+# Phase 7 dashboard (React + Vite)
+dashboard/node_modules/
+dashboard/dist/
+npm-debug.log*
+*.local
