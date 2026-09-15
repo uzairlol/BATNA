@@ -142,6 +142,9 @@ def test_summary_no_agreement_gap_and_until_agreement_flag() -> None:
     result = _agreement_result(buyer_p, seller_p)
     result["outcome"] = NegotiationOutcome.ROUND_EXHAUSTION
     result["accepted_offer"] = None
+    # In "until agreement" mode the graph honours the hard cap, not the soft
+    # budget — the summary's max_rounds should reflect the effective bound.
+    result["effective_max_rounds"] = 100
     # Force a gap: last buyer offer 99k, last seller offer 112k.
     turn_history = cast("list[dict[str, object]]", result["turn_history"])
     turn_history[-1]["terms"] = _terms(112_000.0)
@@ -161,4 +164,6 @@ def test_summary_no_agreement_gap_and_until_agreement_flag() -> None:
     assert summary["agreed_price"] is None
     assert summary["agreed_at_round"] is None
     assert summary["until_agreement"] is True
+    # The effective round bound (hard cap) is reported, not the soft budget.
+    assert summary["max_rounds"] == 100
     assert summary["convergence_gap"] == round(abs(99_000.0 - 112_000.0), 2)

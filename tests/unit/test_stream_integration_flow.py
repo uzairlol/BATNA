@@ -166,6 +166,58 @@ async def test_buyer_and_seller_share_one_session_sink(
     assert len(set(seqs)) == len(seqs)  # no collisions across both agents
 
 
+async def test_until_agreement_session_summary_reports_effective_cap(
+    _hermetic_registry: ToolRegistryClient,
+) -> None:
+    """Summary emitted via the streaming sink uses the hard-cap round budget, not the soft one.
+
+    When ``until_agreement=True`` the loop ignores the soft ``max_rounds``
+    budget (12) and runs until agreement or the hard safety cap (100).
+    The SESSION_END summary must report the *effective* cap so the dashboard
+    and any downstream consumer know the true round bound.
+    """
+    sink = InMemoryStreamSink(session_id="sess-until-1")
+    buyer_p, seller_p = _scenario_principals("wide")
+    registry = _hermetic_registry
+
+    buyer = BuyerAgent(
+        llm=ScriptedNegotiatorLLM(role="buyer", base_price=70_000.0),
+        provider=ToolProvider(registry, sink=sink, role="buyer"),
+        sink=sink,
+        role="buyer",
+    )
+    seller = SellerAgent(
+        llm=ScriptedNegotiatorLLM(role="seller", base_price=120_000.0),
+        provider=ToolProvider(registry, sink=sink, role="seller"),
+        sink=sink,
+        role="seller",
+    )
+
+    result = await run_negotiation(
+        buyer,
+        seller,
+        buyer_p,
+        seller_p,
+        _DEFAULT_SCENARIO,
+        max_rounds=12,
+        until_agreement=True,
+        sink=sink,
+        thread_id="sess-until-1",
+    )
+
+    # Scripted negotiators converge within the hard cap on a wide ZOPA.
+    assert result["outcome"] is NegotiationOutcome.AGREEMENT
+
+    # The session_start event must carry until_agreement for the dashboard.
+    start = next(e for e in sink.emitted if e.type is EventType.SESSION_START)
+    assert start.payload["until_agreement"] is True
+
+    # The summary's max_rounds is the effective hard cap, not the soft budget.
+    summary = result["summary"]
+    assert summary["until_agreement"] is True
+    assert summary["max_rounds"] == 100  # hard cap, not the soft 12
+
+
 async def test_run_mode_is_threaded_into_session_start_and_result(
     _hermetic_registry: ToolRegistryClient,
 ) -> None:

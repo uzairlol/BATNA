@@ -140,7 +140,7 @@ def build_session_summary(
     return {
         "outcome": outcome,
         "rounds_elapsed": int(result.get("rounds_elapsed", 0)),
-        "max_rounds": int(result.get("max_rounds", 0)),
+        "max_rounds": int(result.get("effective_max_rounds") or result.get("max_rounds", 0)),
         "until_agreement": bool(until_agreement),
         "agreed_price": agreed_price,
         "agreed_at_round": agreed_at_round,
