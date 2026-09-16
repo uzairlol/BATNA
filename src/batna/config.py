@@ -47,7 +47,14 @@ class Settings(BaseSettings):
     # and autonomously decides which to call before its opening offer; these bounds
     # keep the agentic loop finite and auditable. Override via env or .env.
     agent_model: str = "qwen2.5:7b"
-    agent_max_tool_calls: int = 6
+    # Per-PROPOSAL tool-call budget: it resets at the start of every round, so an
+    # agent may consult tools again on multiple turns of a negotiation (not just
+    # the opening offer). Within a single proposal it bounds the tool loop.
+    agent_max_tool_calls: int = 8
+    # Phase 8 memory. How many prior turns each agent is fed as context on a
+    # counter-offer. 0 means keep the FULL exchange history (longest memory); a
+    # positive value caps to the most recent N turns to bound context size.
+    agent_max_history_turns: int = 0
     # Phase 6 negotiation clock: agents concede in small (10%) steps, so a deal
     # closes after ~7-8 exchanges rather than on the first offer. This higher
     # default gives the graph room to run a genuine multi-round negotiation.

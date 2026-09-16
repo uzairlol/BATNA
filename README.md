@@ -143,6 +143,43 @@ Streaming is backward-compatible: `ToolProvider`, `NegotiatorAgent`, and
 `run_negotiation` all accept an optional `sink` (default `None`), so existing
 phases and tests are unaffected without one.
 
+---
+
+## Theory-of-Mind Auditor & Tool-Provenance (Phase 8)
+
+Every proposal turn is audited for **Reasoning-Action consistency** — the gap
+ELICIT found where an agent articulates a strategy it then violates. The
+deterministic core in `audit/` runs **three hermetic checks** on each turn and
+records a typed `AuditReport` both on the wire stream (`EventType.AUDIT`) and
+inside `turn_history`:
+
+- **Reasoning-Offer** (`audit/tom_auditor.py`) — the six proposed terms must
+  stay inside the *proposing* principal's own authorized mandate, and any
+  `$` price the reasoning leads with must match the structured offer's price.
+- **Reasoning-Tool** — the cited risk engine (`assess_contract_risk`) is
+  deterministically re-run over the offered terms; the agent cannot claim a
+  proposal is clean when the engine flags it.
+- **Tool-Provenance** — every data figure the justification cites must appear
+  in the session's `ToolCallLog`; the offer's own six values are excluded
+  (they are decisions, not fetched claims), reusing `verify_offer_grounded`.
+
+`audit/schemas.py` defines the wire contract (`AuditReport`, `AuditFinding`,
+`AuditEventPayload`) that `Transcript.tsx` already renders (`verdict`,
+`consistent`, `tom_score`, `result`). `build_negotiation_graph` /
+`run_negotiation` accept an optional `auditor` (default: a `ToMAuditor` on the
+shared sink) so the audit layer is an additive, zero-cost default. No judge LLM
+is needed — the LLM-judge tier is deferred to a later phase.
+
+Agents also gained **longer memory and repeated tool use** this phase: the
+per-proposal tool budget (`agent_max_tool_calls`) resets at the start of every
+round, so an agent may consult tools again on each turn of a negotiation (not
+just the opening offer), and the full exchange history is retained by default
+(`agent_max_history_turns`, `0` = unlimited).
+
+Phase 8 Definition of Done: the auditor correctly flags 3 reasoning-offer
+contradictions, 3 reasoning-tool contradictions, and 3 fabricated
+tool-provenance cases (see `tests/unit/test_audit_tom.py`).
+
 ### Live demo (one command each)
 
 ```bash

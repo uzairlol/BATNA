@@ -33,6 +33,7 @@ from batna.agents.negotiation_state import NegotiationState
 from batna.agents.seller_agent import SellerAgent
 from batna.agents.summary import build_session_summary
 from batna.agents.tool_call_log import ToolCallLog
+from batna.audit.tom_auditor import ToMAuditor
 from batna.engine.acceptance import NegotiationOutcome, classify_outcome, is_acceptable
 from batna.engine.principal import Principal
 from batna.stream.events import EventType, build_event
@@ -63,12 +64,16 @@ class _GraphContext:
         seller_principal: Principal,
         *,
         sink: StreamSink | None = None,
+        auditor: ToMAuditor | None = None,
     ) -> None:
         self.buyer = buyer
         self.seller = seller
         self.buyer_principal = buyer_principal
         self.seller_principal = seller_principal
         self.sink = sink if sink is not None else NullStreamSink()
+        # One deterministic auditor per negotiation, streaming on the same sink so
+        # EventType.AUDIT events interleave with the other session events.
+        self.auditor = auditor if auditor is not None else ToMAuditor(sink=self.sink)
 
 
 def _zopa_exists(buyer: Principal, seller: Principal) -> bool:
@@ -119,6 +124,15 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
             "terms": parsed.terms.model_dump(),
             "justification": parsed.raw_text,
         }
+        # Phase 8 ToM audit of this proposal turn; the report is recorded in
+        # turn_history and streamed as an EventType.AUDIT event.
+        turn["audit"] = (await ctx.auditor.audit_turn(
+            role="buyer",
+            principal=ctx.buyer_principal,
+            call_log=ctx.buyer.call_log,
+            reasoning_text=parsed.raw_text,
+            terms=parsed.terms,
+        )).model_dump()
         await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="buyer"))
         return {
             "buyer_offer": parsed.terms,
@@ -171,6 +185,15 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
             "terms": parsed.terms.model_dump(),
             "justification": parsed.raw_text,
         }
+        # Phase 8 ToM audit of this proposal turn; the report is recorded in
+        # turn_history and streamed as an EventType.AUDIT event.
+        turn["audit"] = (await ctx.auditor.audit_turn(
+            role="seller",
+            principal=ctx.seller_principal,
+            call_log=ctx.seller.call_log,
+            reasoning_text=parsed.raw_text,
+            terms=parsed.terms,
+        )).model_dump()
         await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="seller"))
         return {
             "seller_offer": parsed.terms,
@@ -297,14 +320,19 @@ def build_negotiation_graph(
     seller_principal: Principal,
     *,
     sink: StreamSink | None = None,
+    auditor: ToMAuditor | None = None,
 ) -> CompiledStateGraph[NegotiationState]:
     """Build and compile the Phase 6 two-agent negotiation ``StateGraph``.
 
     Agents and principals are captured in the returned graph's closure, so the
     graph state stays serializable (checkpointer-friendly). An optional ``sink``
     streams discovery/offer/acceptance/finalize events as each node completes.
+    An optional ``auditor`` (default: a ``ToMAuditor`` on the same sink) audits
+    every proposal turn and streams ``EventType.AUDIT`` events (Phase 8).
     """
-    ctx = _GraphContext(buyer, seller, buyer_principal, seller_principal, sink=sink)
+    ctx = _GraphContext(
+        buyer, seller, buyer_principal, seller_principal, sink=sink, auditor=auditor
+    )
     nodes = _make_nodes(ctx)
 
     graph = StateGraph(NegotiationState)
@@ -344,6 +372,7 @@ async def run_negotiation(
     max_rounds: int | None = None,
     until_agreement: bool = False,
     sink: StreamSink | None = None,
+    auditor: ToMAuditor | None = None,
     thread_id: str | None = None,
     run_mode: str | None = None,
     run_model: str | None = None,
@@ -371,7 +400,12 @@ async def run_negotiation(
     effective = settings.agent_max_rounds_until_agreement if until_agreement else soft
     active_sink: StreamSink = sink if sink is not None else NullStreamSink()
     app = build_negotiation_graph(
-        buyer, seller, buyer_principal, seller_principal, sink=active_sink
+        buyer,
+        seller,
+        buyer_principal,
+        seller_principal,
+        sink=active_sink,
+        auditor=auditor,
     )
     initial: NegotiationState = {
         "scenario": scenario,

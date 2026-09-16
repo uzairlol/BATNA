@@ -149,6 +149,16 @@ class NegotiatorAgent(ABC):
         return json.dumps(mandate, sort_keys=True)
 
     async def _propose(self, system: str, history: list[dict[str, Any]]) -> ParsedOffer:
+        # Every proposal round gets a FRESH tool-call budget. Resetting here means
+        # an agent may consult tools again on each turn of a long negotiation
+        # instead of exhausting a session-wide cap on the opening offer.
+        self._tool_calls_made = 0
+        # Lifetime memory: keep the FULL exchange history by default (0 =
+        # unlimited). A positive agent_max_history_turns caps to the most recent
+        # N turns to bound context size on very long sessions.
+        cap = settings.agent_max_history_turns
+        if cap and cap > 0 and len(history) > cap:
+            history = history[-cap:]
         # Reuse session grounding (tool results already fetched) so the agent
         # does not re-query the market on every counter-offer. History carries
         # the exchange context and is placed after the grounding so the most

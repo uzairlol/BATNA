@@ -22,6 +22,8 @@ from batna.agents.tool_provider import ToolProvider
 from batna.engine.acceptance import NegotiationOutcome
 from batna.engine.principal import Principal
 from batna.mcp_servers.registry_client import ToolRegistryClient
+from batna.stream.events import EventType
+from batna.stream.sink import InMemoryStreamSink
 
 _MARKET_SCHEMA = {
     "type": "object",
@@ -225,3 +227,33 @@ async def test_build_graph_compiles() -> None:
     buyer_p, seller_p = _wide_zopa_principals()
     app = build_negotiation_graph(buyer, seller, buyer_p, seller_p)
     assert app is not None
+
+
+async def test_graph_emits_audit_events_and_records_reports() -> None:
+    """Phase 8: every proposal turn is audited; reports stream and attach."""
+    registry = _FakeRegistry([_MARKET_TOOL], {"get_market_benchmark": _benchmark_response})
+    buyer, seller = _make_agents(registry)
+    buyer_p, seller_p = _wide_zopa_principals()
+    sink = InMemoryStreamSink(session_id="phase8")
+    result = await run_negotiation(
+        buyer, seller, buyer_p, seller_p, _SCENARIO, max_rounds=4, sink=sink
+    )
+
+    # Each recorded turn carries an attached audit report with full findings.
+    assert result["turn_history"]
+    for turn in result["turn_history"]:
+        audit = turn["audit"]
+        assert audit["findings"]
+        assert audit["verdict"] in {"consistent", "inconsistent"}
+        assert 0.0 <= audit["tom_score"] <= 1.0
+
+    # The stream carried one EventType.AUDIT event per proposal turn, with the
+    # dashboard-contract fields (consistent / verdict / tom_score / result).
+    audit_events = [e for e in sink.events if e.type is EventType.AUDIT]
+    assert len(audit_events) == len(result["turn_history"])
+    for ev in audit_events:
+        assert ev.side in {"buyer", "seller"}
+        assert ev.payload["consistent"] in {True, False}
+        assert ev.payload["verdict"] in {"consistent", "inconsistent"}
+        assert "tom_score" in ev.payload
+        assert ev.payload["result"]
