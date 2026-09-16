@@ -4,6 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![M8ven Score](https://m8ven.ai/badge/mcp/uzairlol/batna)](https://m8ven.ai/mcp/uzairlol/batna)
 
 BATNA is a multi-agent contract negotiation system where two AI agents negotiate commercial terms on behalf of opposing parties.
 
