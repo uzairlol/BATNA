@@ -13,6 +13,8 @@ const LABELS: Record<string, string> = {
   acceptance_check: "Acceptance check",
   finalize: "Finalize",
   error: "Error",
+  audit: "Theory-of-Mind audit",
+  approval_gate: "Approval gate",
 };
 
 function isToolCall(type: StreamEvent["type"]): boolean {

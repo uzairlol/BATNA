@@ -150,6 +150,25 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Visible focus ring for keyboard users; hidden elsewhere for pointer taps. */
+button:focus-visible,
+select:focus-visible,
+input[type="checkbox"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--buyer-bright);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .checkbox-label input {
   accent-color: var(--buyer);
   width: 15px;
@@ -518,6 +537,22 @@ button:disabled {
   padding: 9px 14px 10px;
 }
 
+/* New messages glide + fade in like an incoming iMessage. */
+.msg {
+  animation: msg-in 0.24s ease-out both;
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .msg-first-bubble {
   border-radius: 18px;
 }
@@ -743,6 +778,20 @@ button:disabled {
   color: var(--red);
 }
 
+/* Theory-of-Mind auditor + human approval-gate escalation lines. */
+.action-audit {
+  color: var(--buyer-bright);
+}
+
+.action-audit-warn {
+  color: var(--amber);
+}
+
+.action-gate {
+  color: var(--buyer-bright);
+  font-weight: 600;
+}
+
 /* ---- Composer bar (faux iMessage input/send) ------------------------ */
 
 .composer {
@@ -791,6 +840,8 @@ button:disabled {
 
 .composer-send:hover:not(:disabled) {
   background: var(--buyer-bright);
+  box-shadow: 0 4px 14px rgba(11, 132, 254, 0.4);
+  transform: translateY(-1px);
 }
 
 .composer-send:active:not(:disabled) {
@@ -839,6 +890,19 @@ button:disabled {
 .ev-session_end,
 .ev-finalize {
   border-color: rgba(48, 209, 88, 0.35);
+}
+
+.ev-audit {
+  border-color: rgba(74, 163, 255, 0.35);
+}
+
+.ev-approval_gate {
+  border-color: rgba(224, 161, 59, 0.4);
+}
+
+/* New feed rows fade + slide in as the server streams them. */
+.feed .ev {
+  animation: msg-in 0.22s ease-out both;
 }
 
 .ev-head {
@@ -971,6 +1035,31 @@ button:disabled {
   border-radius: 22px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
   overflow: hidden;
+  animation: modal-in 0.22s ease-out both;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-overlay {
+  animation: overlay-in 0.18s ease-out both;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-head {
@@ -1210,4 +1299,53 @@ button:disabled {
 
 .side-tool-count {
   font-weight: 600;
+}
+
+/* ---- Responsive + view-toggle polish -------------------------------- */
+
+/* Let the topbar controls wrap onto a second line on narrow screens
+   instead of overflowing past the phone frame. */
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .statusbar {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+}
+
+/* Slimmer phone chrome on short viewports so the thread never gets clipped. */
+@media (max-height: 620px) {
+  .phone {
+    border-width: 0;
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Smooth view switch (Negotiation <-> Raw event log). */
+.view-body > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  animation: view-fade 0.18s ease-out both;
+}
+
+@keyframes view-fade {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

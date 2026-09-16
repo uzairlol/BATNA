@@ -106,9 +106,21 @@ export async function startNegotiation(
 /**
  * Native WebSocket client: the server replays the buffered session on connect,
  * then pushes each new event the instant it is published — no polling.
+ *
+ * The connection survives transient drops: if the socket closes while the feed
+ * is still active (i.e. not deliberately stopped), it reconnects with
+ * exponential backoff so a flaky network never silently kills a live session.
+ * The app's seq-based dedup (see `App`'s `seenSeq`) makes replay + live frames
+ * safe across rebuilds, so a reconnect can never double-render an event.
  */
 export class LiveFeed {
   private ws: WebSocket | null = null;
+  private stopped = true;
+  private retries = 0;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Cap reconnect delay so a dead session doesn't hammer the server forever. */
+  private static readonly MAX_RETRY_MS = 8000;
 
   constructor(
     private readonly sessionId: string,
@@ -117,12 +129,23 @@ export class LiveFeed {
   ) {}
 
   start(): void {
+    this.stopped = false;
+    this.retries = 0;
+    this.connect();
+  }
+
+  private connect(): void {
+    if (this.stopped) return;
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
     const url = `${proto}://${window.location.host}/api/ws/${this.sessionId}`;
     this.onConnection("connecting");
     const ws = new WebSocket(url);
     this.ws = ws;
-    ws.onopen = () => this.onConnection("open");
+
+    ws.onopen = () => {
+      this.retries = 0;
+      this.onConnection("open");
+    };
     ws.onmessage = (msg) => {
       try {
         this.onEvent(JSON.parse(msg.data) as StreamEvent);
@@ -130,12 +153,38 @@ export class LiveFeed {
         // ignore non-JSON frames
       }
     };
-    ws.onclose = () => this.onConnection("closed");
-    ws.onerror = () => this.onConnection("error");
+    ws.onclose = () => {
+      this.ws = null;
+      if (this.stopped) {
+        this.onConnection("closed");
+        return;
+      }
+      this.scheduleReconnect();
+    };
+    ws.onerror = () => {
+      // `onclose` fires right after `onerror`; let it own the reconnect logic.
+      this.onConnection("error");
+    };
+  }
+
+  private scheduleReconnect(): void {
+    if (this.stopped) return;
+    // Exponential backoff with a little jitter so parallel clients don't sync up.
+    const base = Math.min(1000 * 2 ** this.retries, LiveFeed.MAX_RETRY_MS);
+    const jitter = Math.round(base * (0.5 + Math.random() * 0.5));
+    this.retries += 1;
+    this.onConnection("connecting");
+    this.timer = setTimeout(() => this.connect(), jitter);
   }
 
   stop(): void {
+    this.stopped = true;
+    if (this.timer !== null) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
     this.ws?.close();
     this.ws = null;
+    this.onConnection("closed");
   }
 }

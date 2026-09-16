@@ -129,6 +129,33 @@ function buildRows(
         });
         break;
       }
+      case "audit": {
+        // Theory-of-Mind audit of the latest reasoning/tool action.
+        const verdict = String(p.verdict ?? p.result ?? "");
+        const consistent = p.consistent === true || verdict === "consistent";
+        const tom = typeof p.tom_score === "number" ? p.tom_score : null;
+        const actionText = [
+          `Auditor reviewed ${sideLabel(ev.side)} — ${consistent ? "consistent ✓" : "inconsistent"}`,
+          tom !== null && Number.isFinite(tom) ? `· ToM ${(tom * 100).toFixed(0)}%` : "",
+          verdict ? `· ${verdict}` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        rows.push({ kind: "action", cls: consistent ? "audit" : "audit-warn", text: actionText, ts: ev.ts });
+        break;
+      }
+      case "approval_gate": {
+        // Human-in-the-loop escalation held at a pending_approval state.
+        const approved = p.approved;
+        const decision =
+          approved === true
+            ? "Approval granted — autonomous finalization may proceed"
+            : approved === false
+              ? "Approval denied — action held for revision"
+              : "⚠ High-stakes action escalated — awaiting human approval";
+        rows.push({ kind: "action", cls: "gate", text: decision, ts: ev.ts });
+        break;
+      }
       case "finalize":
         rows.push({ kind: "action", cls: "final", text: outcomeSentence(p.outcome), ts: ev.ts });
         break;
