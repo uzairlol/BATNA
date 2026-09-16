@@ -126,13 +126,15 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
         }
         # Phase 8 ToM audit of this proposal turn; the report is recorded in
         # turn_history and streamed as an EventType.AUDIT event.
-        turn["audit"] = (await ctx.auditor.audit_turn(
-            role="buyer",
-            principal=ctx.buyer_principal,
-            call_log=ctx.buyer.call_log,
-            reasoning_text=parsed.raw_text,
-            terms=parsed.terms,
-        )).model_dump()
+        turn["audit"] = (
+            await ctx.auditor.audit_turn(
+                role="buyer",
+                principal=ctx.buyer_principal,
+                call_log=ctx.buyer.call_log,
+                reasoning_text=parsed.raw_text,
+                terms=parsed.terms,
+            )
+        ).model_dump()
         await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="buyer"))
         return {
             "buyer_offer": parsed.terms,
@@ -187,13 +189,15 @@ def _make_nodes(ctx: _GraphContext) -> dict[str, Any]:
         }
         # Phase 8 ToM audit of this proposal turn; the report is recorded in
         # turn_history and streamed as an EventType.AUDIT event.
-        turn["audit"] = (await ctx.auditor.audit_turn(
-            role="seller",
-            principal=ctx.seller_principal,
-            call_log=ctx.seller.call_log,
-            reasoning_text=parsed.raw_text,
-            terms=parsed.terms,
-        )).model_dump()
+        turn["audit"] = (
+            await ctx.auditor.audit_turn(
+                role="seller",
+                principal=ctx.seller_principal,
+                call_log=ctx.seller.call_log,
+                reasoning_text=parsed.raw_text,
+                terms=parsed.terms,
+            )
+        ).model_dump()
         await ctx.sink.emit(build_event(EventType.OFFER, parsed.terms.model_dump(), side="seller"))
         return {
             "seller_offer": parsed.terms,

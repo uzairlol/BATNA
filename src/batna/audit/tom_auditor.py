@@ -95,14 +95,18 @@ class ToMAuditor:
         norm_role: Literal["buyer", "seller"] = cast(Literal["buyer", "seller"], role)
 
         findings: list[AuditFinding] = [
-            self._check_reasoning_offer(terms=terms, principal=principal, reasoning_text=reasoning_text),
+            self._check_reasoning_offer(
+                terms=terms, principal=principal, reasoning_text=reasoning_text
+            ),
             self._check_reasoning_tool(
                 terms=terms,
                 principal=principal,
                 reasoning_text=reasoning_text,
                 market_reference_price=market_reference_price,
             ),
-            self._check_tool_provenance(call_log=call_log, reasoning_text=reasoning_text, terms=terms),
+            self._check_tool_provenance(
+                call_log=call_log, reasoning_text=reasoning_text, terms=terms
+            ),
         ]
         report = AuditReport.from_findings(role=norm_role, findings=findings)
         await self._emit_audit_event(report)
@@ -144,7 +148,11 @@ class ToMAuditor:
                         f"Reasoning leads with ${prose_price:,.2f} but the OFFER_JSON price "
                         f"is ${offered:,.2f} — the prose and the structured offer disagree."
                     ),
-                    detail={"prose_price": prose_price, "offered_price": offered, "deviation": round(deviation, 6)},
+                    detail={
+                        "prose_price": prose_price,
+                        "offered_price": offered,
+                        "deviation": round(deviation, 6),
+                    },
                 )
             return AuditFinding(
                 kind=AuditKind.REASONING_OFFER,
@@ -178,7 +186,9 @@ class ToMAuditor:
             market_reference_price=market_reference_price,
             price_mandate=price_mandate,
         )
-        flagged = [check.rule_id for check in assessment.checks if check.status is RiskStatus.FLAGGED]
+        flagged = [
+            check.rule_id for check in assessment.checks if check.status is RiskStatus.FLAGGED
+        ]
         claims_clean = _CLEAN_CLAIM_RE.search(reasoning_text) is not None
 
         if claims_clean and (assessment.blocked or flagged):

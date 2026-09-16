@@ -49,7 +49,9 @@ class AuditFinding(BaseModel):
     severity: AuditSeverity = Field(..., description="How serious a failure this represents")
     consistent: bool = Field(..., description="True if this surface held")
     message: str = Field(..., description="Human-readable explanation for the finding")
-    detail: dict[str, Any] = Field(default_factory=dict, description="Optional machine-readable evidence")
+    detail: dict[str, Any] = Field(
+        default_factory=dict, description="Optional machine-readable evidence"
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -57,12 +59,16 @@ class AuditFinding(BaseModel):
 class AuditReport(BaseModel):
     """Aggregate audit result for one proposal turn."""
 
-    role: Literal["buyer", "seller"] = Field(..., description="Which agent produced the audited turn")
+    role: Literal["buyer", "seller"] = Field(
+        ..., description="Which agent produced the audited turn"
+    )
     consistent: bool = Field(..., description="True iff every finding is consistent")
     verdict: Literal["consistent", "inconsistent"] = Field(
         ..., description="Stable one-word verdict (drives the dashboard badge)"
     )
-    tom_score: float = Field(..., ge=0.0, le=1.0, description="Fraction of findings that are consistent (0..1)")
+    tom_score: float = Field(
+        ..., ge=0.0, le=1.0, description="Fraction of findings that are consistent (0..1)"
+    )
     findings: list[AuditFinding] = Field(
         default_factory=list, description="Per-surface check results (one per AuditKind)"
     )
@@ -77,7 +83,7 @@ class AuditReport(BaseModel):
         role: Literal["buyer", "seller"],
         findings: list[AuditFinding],
         result: str = "",
-    ) -> "AuditReport":
+    ) -> AuditReport:
         """Build a report by aggregating a set of findings deterministically."""
         consistent = all(finding.consistent for finding in findings)
         score = 1.0 if not findings else sum(f.consistent for f in findings) / len(findings)
